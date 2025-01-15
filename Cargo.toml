@@ -4,13 +4,12 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
 description = "Webservice for serving plain text documents"
-documentation = "https://github.com/proycon/textsurf"
-homepage = "https://annotation.github.io/textsurf"
+documentation = "https://docs.rs/textsurf"
 include = ["src/**/*","tests/**/*", "LICENSE", "README.md"]
 license = "AGPL-3.0-only"
 readme = "README.md"
-repository = "https://github.com/proycon/textsurf"
-keywords = [ "text-processing", "annotation", "linguistics", "standoff", "nlp"]
+repository = "https://github.com/knaw-huc/textsurf"
+keywords = [ "text-processing", "annotation", "standoff", "nlp", "text"]
 
 [dependencies]
 axum = "0.7.7"
@@ -20,7 +19,7 @@ serde_json = "1.0.133"
 tokio = { version = "1.41.0", features = ["macros","rt-multi-thread","signal"] }
 tower = "0.5.1"
 tower-http = { version = "0.6.1", features= ["trace", "normalize-path"] }
-textframe = { path = "../textframe" }
+textframe = "0.1.0"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 utoipa = { version = "5.3.1", features = ["axum_extras"] }
