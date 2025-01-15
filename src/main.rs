@@ -85,7 +85,7 @@ struct Args {
         get_text_slice,
     ),
     tags(
-        (name = "textsurf", description = "Text serve repository")
+        (name = "textsurf", description = "Webservice for efficiently serving multiple plain text documents or excerpts thereof (by unicode character offset), without everything into memory.")
     )
 )]
 pub struct ApiDoc;
@@ -131,9 +131,9 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(list_texts))
-        .route("/{resource_id}/{begin}/{end}", get(get_text_slice))
-        .route("/{resource_id}", get(get_text))
-        .route("/{resource_id}", post(create_text))
+        .route("/{text_id}/{begin}/{end}", get(get_text_slice))
+        .route("/{text_id}", get(get_text))
+        .route("/{text_id}", post(create_text))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
         .with_state(textpool.clone());
@@ -227,7 +227,7 @@ async fn list_texts(
         (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the store is configured as read-only or the store already exists", content_type = "application/json")
     )
 )]
-/// Create a new text store
+/// Create (upload) a new text
 async fn create_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
@@ -240,7 +240,7 @@ async fn create_text(
     get,
     path = "/{text_id}",
     params(
-        ("text_id" = String, Path, description = "The identifier of the text"),
+        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
     ),
     responses(
         (status = 200, description = "The text identifier",content(
@@ -249,7 +249,7 @@ async fn create_text(
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
 )]
-/// Returns a full text given a filename
+/// Returns a full text given a text identifier
 async fn get_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
@@ -266,9 +266,9 @@ async fn get_text(
     get,
     path = "/{text_id}/{begin}/{end}",
     params(
-        ("text_id" = String, Path, description = "The identifier of the resource"),
+        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
         ("begin" = isize, Path, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors."),
-        ("end" = isize, Path, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors. `-0` is a special value in this context, which means until the very end."),
+        ("end" = isize, Path, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end."),
     ),
     responses(
         (status = 200, description = "The text",content(
@@ -278,7 +278,7 @@ async fn get_text(
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
 )]
-/// Returns an text slice given a resource identifier and an offset
+/// Returns a text slice given a text identifier and an offset
 async fn get_text_slice(
     Path((text_id, begin, end)): Path<(String, isize, isize)>,
     textpool: State<Arc<TextPool>>,
