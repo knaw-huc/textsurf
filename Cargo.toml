@@ -1,15 +1,15 @@
 [package]
-name = "textrepo"
-version = "2.0.0"
+name = "textsurf"
+version = "0.1.0"
 edition = "2021"
 authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
 description = "Webservice for serving plain text documents"
-documentation = "https://github.com/proycon/textrepo"
-homepage = "https://annotation.github.io/textrepo"
+documentation = "https://github.com/proycon/textsurf"
+homepage = "https://annotation.github.io/textsurf"
 include = ["src/**/*","tests/**/*", "LICENSE", "README.md"]
 license = "AGPL-3.0-only"
 readme = "README.md"
-repository = "https://github.com/proycon/textrepo"
+repository = "https://github.com/proycon/textsurf"
 keywords = [ "text-processing", "annotation", "linguistics", "standoff", "nlp"]
 
 [dependencies]

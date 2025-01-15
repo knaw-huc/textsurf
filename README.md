@@ -1,9 +1,9 @@
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
-[![Crate](https://img.shields.io/crates/v/textrepo.svg)](https://crates.io/crates/textrepo)
-[![Docs](https://docs.rs/textrepo/badge.svg)](https://docs.rs/stamd/)
-[![GitHub release](https://img.shields.io/github/release/proycon/textrepo.svg)](https://GitHub.com/proycon/textrepo/releases/)
+[![Crate](https://img.shields.io/crates/v/textsurf.svg)](https://crates.io/crates/textsurf)
+[![Docs](https://docs.rs/textsurf/badge.svg)](https://docs.rs/stamd/)
+[![GitHub release](https://img.shields.io/github/release/proycon/textsurf.svg)](https://GitHub.com/proycon/textsurf/releases/)
 
-# TextRepo 2.0 Prototype
+# Textsurf 
 
 This is a webservice for efficiently serving plain texts and fragments thereof.
 
@@ -28,12 +28,12 @@ The following endpoints are available:
 ### From source
 
 ```
-$ cargo install textrepo
+$ cargo install textsurf
 ```
 
 ## Usage
 
-Run `textrepo` to start the webservice, see `textrepo --help` for various parameters.
+Run `textsurf` to start the webservice, see `textsurf --help` for various parameters.
 
 ## Security
 
