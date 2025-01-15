@@ -1,6 +1,6 @@
 use axum::{
-    body::Body, extract::Path, extract::Query, extract::State, http::HeaderMap, http::HeaderValue,
-    http::Request, routing::get, routing::post, Form, Router,
+    body::to_bytes, body::Body, extract::Path, extract::Query, extract::State, http::HeaderMap,
+    http::HeaderValue, http::Request, routing::get, routing::post, Form, Router,
 };
 use clap::Parser;
 use serde::Deserialize;
@@ -219,6 +219,7 @@ async fn list_texts(
 #[utoipa::path(
     post,
     path = "/{text_id}",
+    request_body( content_type = "text/plain", content = String),
     params(
         ("text_id" = String, Path, description = "The identifier of the text"),
     ),
@@ -227,12 +228,13 @@ async fn list_texts(
         (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the store is configured as read-only or the store already exists", content_type = "application/json")
     )
 )]
-/// Create (upload) a new text
+/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8
 async fn create_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
+    text: String,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.new_text(&text_id)?;
+    textpool.new_text(&text_id, text)?;
     Ok(ApiResponse::Created())
 }
 

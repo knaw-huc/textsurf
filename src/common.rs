@@ -95,3 +95,22 @@ impl From<textframe::Error> for ApiError {
         Self::TextError(value)
     }
 }
+
+impl From<std::io::Error> for ApiError {
+    fn from(value: std::io::Error) -> Self {
+        match value.kind() {
+            std::io::ErrorKind::NotFound => Self::NotFound("file not found"),
+            std::io::ErrorKind::PermissionDenied => Self::PermissionDenied("permission denied"),
+            std::io::ErrorKind::NotSeekable => Self::InternalError("file not seekable"),
+            std::io::ErrorKind::StorageFull => Self::InternalError("storage full"),
+            std::io::ErrorKind::ReadOnlyFilesystem => Self::InternalError("read only filesystem"),
+            _ => Self::InternalError("UFile I/O error"),
+        }
+    }
+}
+
+impl From<axum::Error> for ApiError {
+    fn from(value: axum::Error) -> Self {
+        Self::InternalError("web framework error")
+    }
+}

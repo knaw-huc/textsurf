@@ -1,5 +1,7 @@
 use crate::common::ApiError;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::prelude::*;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -84,43 +86,20 @@ impl TextPool {
     }
 
     /// Create a new text
-    pub fn new_text(&self, id: &str) -> Result<(), ApiError> {
+    pub fn new_text(&self, id: &str, text: String) -> Result<(), ApiError> {
         if self.readonly {
             return Err(ApiError::PermissionDenied("Service is readonly"));
         }
-        /*
         self.check_basename(id)?;
         let filename: String = format!("{}.{}", id, self.extension());
         let filename_pb: PathBuf = filename.clone().into();
         if filename_pb.exists() {
             Err(ApiError::PermissionDenied("Text already exists"))
         } else {
-            let mut store = AnnotationStore::new(self.config.clone()).with_id(id);
-            store.set_filename(filename.as_str());
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-            if let Ok(mut states) = self.states.write() {
-                //mark as loading
-                states.insert(
-                    id.to_string(),
-                    StoreState {
-                        last_access: now,
-                        loading: false,
-                        saving: false,
-                    },
-                );
-            } else {
-                return Err(ApiError::InternalError("Lock poisoned"));
-            }
-            if let Ok(mut stores) = self.stores.write() {
-                stores.insert(id.to_string(), Arc::new(RwLock::new(store)));
-                self.add_webannoconfig(id);
-            } else {
-                return Err(ApiError::InternalError("Lock poisoned"));
-            }
+            let mut file = File::create(filename)?;
+            file.write(text.as_bytes())?;
             Ok(())
         }
-        */
-        Ok(())
     }
 
     /// Loads a text resource into the pool
