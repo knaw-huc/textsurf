@@ -6,6 +6,7 @@
 # Textsurf 
 
 This is a webservice for efficiently serving plain texts and fragments thereof.
+It builds upon [textframe](https://github.com/proycon/textframe).
 
 ## Description & Features
 
