@@ -28,8 +28,18 @@ The following endpoints are available:
 
 ### From source
 
+Production environments:
+
 ```
 $ cargo install textsurf
+```
+
+Development environments:
+
+```
+$ git clone git@github.com:knaw-huc/textsurf.git
+$ cd textsurf
+$ cargo install --path .
 ```
 
 ## Usage
