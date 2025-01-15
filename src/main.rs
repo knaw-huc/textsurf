@@ -85,7 +85,7 @@ struct Args {
         get_text_slice,
     ),
     tags(
-        (name = "textrepo", description = "Text serve repository")
+        (name = "textsurf", description = "Text serve repository")
     )
 )]
 pub struct ApiDoc;
@@ -116,13 +116,14 @@ async fn main() {
     let textpool: Arc<TextPool> = textpool.into();
     let textpool_flush = textpool.clone();
 
+    //launch a background thread that flushes texts out of the pool if they're not used for a while
     std::thread::spawn(move || loop {
         std::thread::sleep(FLUSH_INTERVAL);
         match textpool_flush.flush(false) {
             Err(e) => error!("Flush failed! {:?}", e),
             Ok(v) => {
                 if args.debug {
-                    debug!("Flushed {} store(s)", v.len());
+                    debug!("Flushed {} text(s)", v.len());
                 }
             }
         }
@@ -130,9 +131,10 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(list_texts))
-        .route("/:resource_id/:begin/:end", get(get_text_slice))
-        .route("/:resource_id", get(get_text))
-        .route("/:resource_id", post(create_text))
+        .route("/{resource_id}/{begin}/{end}", get(get_text_slice))
+        .route("/{resource_id}", get(get_text))
+        .route("/{resource_id}", post(create_text))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
         .with_state(textpool.clone());
 
