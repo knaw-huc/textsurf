@@ -18,9 +18,33 @@ pub enum ApiResponse {
 impl IntoResponse for ApiResponse {
     fn into_response(self) -> Response {
         match self {
-            Self::Created() => (StatusCode::CREATED, "created").into_response(),
-            Self::Text(s) => (StatusCode::OK, s).into_response(),
-            Self::JsonList(data) => (StatusCode::OK, Json(data)).into_response(),
+            Self::Created() => (
+                StatusCode::CREATED,
+                [(
+                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                    HeaderValue::from_static("*"),
+                )],
+                "created",
+            )
+                .into_response(),
+            Self::Text(s) => (
+                StatusCode::OK,
+                [(
+                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                    HeaderValue::from_static("*"),
+                )],
+                s,
+            )
+                .into_response(),
+            Self::JsonList(data) => (
+                StatusCode::OK,
+                [(
+                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                    HeaderValue::from_static("*"),
+                )],
+                Json(data),
+            )
+                .into_response(),
         }
     }
 }
