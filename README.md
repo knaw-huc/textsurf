@@ -18,9 +18,10 @@ interactively at the `/swagger-ui/` endpoint once it is running.
 The following endpoints are available:
 
 * `GET /`                  - Returns a simple JSON list of all available texts.
-* `POST /{text_id}`        - Add a new text 
-* `GET /{resource_id}` - Returns a full text given its identifier.
-* `GET /{resource_id}/{begin}/{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive.
+* `GET /{text_id}` - Returns a full text given its identifier.
+* `GET /{text_id}/{begin}/{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive.
+* `POST /{text_id}`        - Add a new text
+* `DELETE /{text_id}`      - Delete a text
 * `GET /swagger-ui`       - Serves an interactive webinterface explaining the RESTful API specification.
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
 
