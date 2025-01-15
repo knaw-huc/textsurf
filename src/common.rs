@@ -11,6 +11,7 @@ use textframe;
 #[derive(Debug)]
 pub enum ApiResponse {
     Created(),
+    NoContent(),
     Text(String), //TODO: Rework to work with a stream over a borrowed &str rather than needing this copy
     JsonList(Vec<Value>),
 }
@@ -25,6 +26,15 @@ impl IntoResponse for ApiResponse {
                     HeaderValue::from_static("*"),
                 )],
                 "created",
+            )
+                .into_response(),
+            Self::NoContent() => (
+                StatusCode::NO_CONTENT,
+                [(
+                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                    HeaderValue::from_static("*"),
+                )],
+                "deleted",
             )
                 .into_response(),
             Self::Text(s) => (

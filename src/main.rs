@@ -1,6 +1,6 @@
 use axum::{
     body::to_bytes, body::Body, extract::Path, extract::Query, extract::State, http::HeaderMap,
-    http::HeaderValue, http::Request, routing::get, routing::post, Form, Router,
+    http::HeaderValue, http::Request, routing::delete, routing::get, routing::post, Form, Router,
 };
 use clap::Parser;
 use serde::Deserialize;
@@ -134,6 +134,7 @@ async fn main() {
         .route("/{text_id}/{begin}/{end}", get(get_text_slice))
         .route("/{text_id}", get(get_text))
         .route("/{text_id}", post(create_text))
+        .route("/{text_id}", delete(delete_text))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
         .with_state(textpool.clone());
@@ -225,7 +226,7 @@ async fn list_texts(
     ),
     responses(
         (status = 201, description = "Returned when successfully created"),
-        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the store is configured as read-only or the store already exists", content_type = "application/json")
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
     )
 )]
 /// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8
@@ -236,6 +237,27 @@ async fn create_text(
 ) -> Result<ApiResponse, ApiError> {
     textpool.new_text(&text_id, text)?;
     Ok(ApiResponse::Created())
+}
+
+#[utoipa::path(
+    delete,
+    path = "/{text_id}",
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text"),
+    ),
+    responses(
+        (status = 204, description = "Returned when successfully deleted"),
+        (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the text does not exist", content_type = "application/json"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied if the service is configured as read-only", content_type = "application/json")
+    )
+)]
+/// Permanently delete a text
+async fn delete_text(
+    Path(text_id): Path<String>,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    textpool.delete_text(&text_id)?;
+    Ok(ApiResponse::NoContent())
 }
 
 #[utoipa::path(

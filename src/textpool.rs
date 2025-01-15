@@ -295,6 +295,22 @@ impl TextPool {
         }
         Ok(filename)
     }
+
+    pub fn delete_text(&self, text_id: &str) -> Result<(), ApiError> {
+        if self.readonly {
+            return Err(ApiError::PermissionDenied("Service is readonly"));
+        }
+        self.check_basename(text_id)?;
+        let filename: String = format!("{}.{}", text_id, self.extension());
+        let filename_pb: PathBuf = filename.clone().into();
+        if filename_pb.exists() {
+            self.unload(text_id)?;
+            std::fs::remove_file(filename_pb)?;
+            Ok(())
+        } else {
+            Err(ApiError::NotFound("No such text"))
+        }
+    }
 }
 
 impl Drop for TextPool {
