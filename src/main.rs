@@ -1,16 +1,15 @@
 use axum::{
-    body::to_bytes, body::Body, extract::Path, extract::Query, extract::State, http::HeaderMap,
-    http::HeaderValue, http::Request, routing::delete, routing::get, routing::post, Form, Router,
+    body::Body, extract::Path, extract::State, http::HeaderMap, http::HeaderValue, http::Request,
+    routing::delete, routing::get, routing::post, Router,
 };
 use clap::Parser;
-use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
 
-use utoipa::{OpenApi, ToSchema};
+use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 mod apidocs;
@@ -22,7 +21,6 @@ use textpool::TextPool;
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 const CONTENT_TYPE_JSON: &'static str = "application/json";
-const CONTENT_TYPE_TEXT: &'static str = "text/plain";
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -41,9 +39,6 @@ struct Args {
         help = "The base directory to serve from"
     )]
     basedir: String,
-
-    #[arg(short = 'u', long, help = "The public-facing base URL.")]
-    baseurl: Option<String>,
 
     #[arg(
         short = 'e',
@@ -96,11 +91,6 @@ async fn main() {
 
     let textpool = TextPool::new(
         args.basedir,
-        if let Some(baseurl) = args.baseurl.as_ref() {
-            baseurl.to_string()
-        } else {
-            format!("http://{}/", args.bind)
-        },
         args.extension,
         args.readonly,
         args.unload_time,

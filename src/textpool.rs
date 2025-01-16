@@ -18,7 +18,6 @@ pub struct State {
 
 pub struct TextPool {
     basedir: PathBuf,
-    baseurl: String,
     extension: String,
     readonly: bool,
     unload_time: u64,
@@ -29,7 +28,6 @@ pub struct TextPool {
 impl TextPool {
     pub fn new(
         basedir: impl Into<PathBuf>,
-        baseurl: impl Into<String>,
         extension: impl Into<String>,
         readonly: bool,
         unload_time: u64,
@@ -40,7 +38,6 @@ impl TextPool {
         } else {
             Ok(Self {
                 basedir,
-                baseurl: baseurl.into(),
                 extension: extension.into(),
                 texts: HashMap::new().into(),
                 states: HashMap::new().into(),
@@ -52,10 +49,6 @@ impl TextPool {
 
     pub fn basedir(&self) -> &Path {
         self.basedir.as_path()
-    }
-
-    pub fn baseurl(&self) -> &str {
-        self.baseurl.as_str()
     }
 
     pub fn extension(&self) -> &str {
@@ -90,12 +83,11 @@ impl TextPool {
         if self.readonly {
             return Err(ApiError::PermissionDenied("Service is readonly"));
         }
-        self.check_basename(id)?;
-        let filename: String = format!("{}.{}", id, self.extension());
-        let filename_pb: PathBuf = filename.clone().into();
-        if filename_pb.exists() {
+        let filename = self.filename_from_id(id)?;
+        if filename.exists() {
             Err(ApiError::PermissionDenied("Text already exists"))
         } else {
+            info!("Creating {}", id);
             let mut file = File::create(filename)?;
             file.write(text.as_bytes())?;
             Ok(())
@@ -140,16 +132,9 @@ impl TextPool {
                 None => break, //not loaded yet
             }
         }
-        //some security checks so the user can't break out of the configured base directory
-        let basename: PathBuf = self.check_basename(id)?;
-
-        let filename = self
-            .basedir
-            .clone()
-            .join(basename.clone())
-            .with_extension(&self.extension);
+        let filename = self.filename_from_id(id)?;
         if !filename.exists() {
-            return Err(ApiError::NotFound("No such annotationstore exists"));
+            return Err(ApiError::NotFound("No such text exists"));
         }
 
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
@@ -168,25 +153,19 @@ impl TextPool {
 
         //loading/indexing (potentially time intensive) done here is done without any locks held
         //it loads/computes only the index, not the full text.
-        if let Some(filename) = filename.to_str() {
-            info!("Loading {}", id);
-            let indexname = self.basedir.clone().join(basename).with_extension("index");
-            match TextFile::new(filename, Some(&indexname)) {
-                Ok(textfile) => {
-                    if let Ok(mut texts) = self.texts.write() {
-                        texts.insert(id.to_string(), Arc::new(RwLock::new(textfile)));
-                    } else {
-                        return Err(ApiError::InternalError("Lock poisoned"));
-                    }
-                }
-                Err(e) => {
-                    return Err(ApiError::TextError(e));
+        info!("Loading {}", id);
+        let indexname = filename.with_extension("index"); //cached index
+        match TextFile::new(filename, Some(&indexname)) {
+            Ok(textfile) => {
+                if let Ok(mut texts) = self.texts.write() {
+                    texts.insert(id.to_string(), Arc::new(RwLock::new(textfile)));
+                } else {
+                    return Err(ApiError::InternalError("Lock poisoned"));
                 }
             }
-        } else {
-            return Err(ApiError::NotFound(
-                "No such annotationstore exists (invalid unicode)",
-            ));
+            Err(e) => {
+                return Err(ApiError::TextError(e));
+            }
         }
 
         //mark loading as done:
@@ -200,6 +179,18 @@ impl TextPool {
         } else {
             return Err(ApiError::InternalError("Lock poisoned"));
         }
+    }
+
+    /// Gets the filename from the ID, validating the ID in the process
+    fn filename_from_id(&self, id: &str) -> Result<PathBuf, ApiError> {
+        //some security checks so the user can't break out of the configured base directory
+        let basename: PathBuf = self.check_basename(id)?;
+
+        Ok(self
+            .basedir
+            .clone()
+            .join(basename.clone())
+            .with_extension(&self.extension))
     }
 
     fn wait_until_ready(&self, id: &str) -> Result<State, ApiError> {
@@ -219,7 +210,7 @@ impl TextPool {
             if wait {
                 std::thread::sleep(WAIT_INTERVAL);
             } else {
-                return Err(ApiError::NotFound("No such store loaded"));
+                return Err(ApiError::NotFound("No such text loaded"));
             }
         }
     }
@@ -300,12 +291,15 @@ impl TextPool {
         if self.readonly {
             return Err(ApiError::PermissionDenied("Service is readonly"));
         }
-        self.check_basename(text_id)?;
-        let filename: String = format!("{}.{}", text_id, self.extension());
-        let filename_pb: PathBuf = filename.clone().into();
-        if filename_pb.exists() {
+        let filename = self.filename_from_id(text_id)?;
+        if filename.exists() {
             self.unload(text_id)?;
-            std::fs::remove_file(filename_pb)?;
+            let cachefilename = filename.with_extension("index");
+            std::fs::remove_file(filename)?;
+            //also remove index file:
+            if cachefilename.exists() {
+                std::fs::remove_file(cachefilename)?;
+            }
             Ok(())
         } else {
             Err(ApiError::NotFound("No such text"))
