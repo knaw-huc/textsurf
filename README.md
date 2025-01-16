@@ -49,9 +49,9 @@ Run `textsurf` to start the webservice, see `textsurf --help` for various parame
 
 ## Security
 
-This webservice is **NOT** meant to be directly opened up to the internet, as
-it does not provide any authentication mechanism and can be easily abused as a
-file hosting service. It is intended as a backend service for dedicated
-frontends to communicate with. Make sure it is behind a firewall or on a
-private network segment. If you do expose it to the internet, make sure to
-launch stamd with the `--readonly` parameter.
+The webservice launches in read-only mode by default (does not allow text
+upload/deletion). Pass `--writable` to allow writing. In that case, the
+webservice is **NOT** meant to be directly opened up to the internet, as it
+does not provide any authentication mechanism and can be easily abused as a
+file hosting service. Make sure it is behind a firewall or on a private network
+segment. 

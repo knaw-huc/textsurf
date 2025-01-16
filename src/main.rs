@@ -59,9 +59,9 @@ struct Args {
         short,
         long,
         default_value_t = false,
-        help = "Read-only, disallow uploads of texts"
+        help = "Allow upload and deletion of texts, otherwise everything is read-only"
     )]
-    readonly: bool,
+    writable: bool,
 
     #[arg(
         long,
@@ -92,7 +92,7 @@ async fn main() {
     let textpool = TextPool::new(
         args.basedir,
         args.extension,
-        args.readonly,
+        !args.writable,
         args.unload_time,
     )
     .expect("Base directory must exist");
