@@ -6,6 +6,7 @@ use axum::{
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::value::Value;
+use std::collections::BTreeMap;
 use textframe;
 
 #[derive(Debug)]
@@ -13,48 +14,32 @@ pub enum ApiResponse {
     Created(),
     NoContent(),
     Text(String), //TODO: Rework to work with a stream over a borrowed &str rather than needing this copy
+    Stat { chars: u64, bytes: u64, mtime: u64 },
     JsonList(Vec<Value>),
 }
 
 impl IntoResponse for ApiResponse {
     fn into_response(self) -> Response {
+        let cors = (
+            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            HeaderValue::from_static("*"),
+        );
         match self {
-            Self::Created() => (
-                StatusCode::CREATED,
-                [(
-                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    HeaderValue::from_static("*"),
-                )],
-                "created",
-            )
-                .into_response(),
-            Self::NoContent() => (
-                StatusCode::NO_CONTENT,
-                [(
-                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    HeaderValue::from_static("*"),
-                )],
-                "deleted",
-            )
-                .into_response(),
-            Self::Text(s) => (
-                StatusCode::OK,
-                [(
-                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    HeaderValue::from_static("*"),
-                )],
-                s,
-            )
-                .into_response(),
-            Self::JsonList(data) => (
-                StatusCode::OK,
-                [(
-                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    HeaderValue::from_static("*"),
-                )],
-                Json(data),
-            )
-                .into_response(),
+            Self::Created() => (StatusCode::CREATED, "created").into_response(),
+            Self::NoContent() => (StatusCode::NO_CONTENT, [cors], "deleted").into_response(),
+            Self::Text(s) => (StatusCode::OK, [cors], s).into_response(),
+            Self::JsonList(data) => (StatusCode::OK, [cors], Json(data)).into_response(),
+            Self::Stat {
+                chars,
+                bytes,
+                mtime,
+            } => {
+                let mut map: BTreeMap<&'static str, u64> = BTreeMap::new();
+                map.insert("chars", chars);
+                map.insert("bytes", bytes);
+                map.insert("mtime", mtime);
+                (StatusCode::OK, [cors], Json(map)).into_response()
+            }
         }
     }
 }

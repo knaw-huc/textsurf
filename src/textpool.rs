@@ -1,4 +1,4 @@
-use crate::common::ApiError;
+use crate::common::{ApiError, ApiResponse};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -71,7 +71,29 @@ impl TextPool {
                     Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
                 }
             } else {
-                Err(ApiError::InternalError("Text file not loaded"))
+                unreachable!("text file should have been  loaded in first line")
+            }
+        } else {
+            Err(ApiError::InternalError("Lock poisoned: textfiles"))
+        }
+    }
+
+    pub fn stat(&self, id: &str) -> Result<ApiResponse, ApiError> {
+        let _state = self.load(id)?;
+        if let Ok(texts) = self.texts.read() {
+            if let Some(textlock) = texts.get(id).cloned() {
+                drop(texts); //compiler should be able to infer this but better safe than sorry
+                if let Ok(textfile) = textlock.read() {
+                    Ok(ApiResponse::Stat {
+                        chars: textfile.len() as u64,
+                        bytes: textfile.len_utf8() as u64,
+                        mtime: textfile.mtime(),
+                    })
+                } else {
+                    Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
+                }
+            } else {
+                unreachable!("text file should have been  loaded in first line")
             }
         } else {
             Err(ApiError::InternalError("Lock poisoned: textfiles"))

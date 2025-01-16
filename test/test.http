@@ -11,6 +11,9 @@ GET http://127.0.0.1:8080/julesverne/-200/0
 ### Error when text does not exist
 GET http://127.0.0.1:8080/doesnotexist
 
+### Get metadata (size, last modification time)
+GET http://127.0.0.1:8080/julesverne/stat
+
 ### Add a new text 
 POST http://127.0.0.1:8080/hello
 Content-Type: text/plain

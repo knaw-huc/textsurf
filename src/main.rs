@@ -122,6 +122,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(list_texts))
         .route("/{text_id}/{begin}/{end}", get(get_text_slice))
+        .route("/{text_id}/stat", get(stat_text))
         .route("/{text_id}", get(get_text))
         .route("/{text_id}", post(create_text))
         .route("/{text_id}", delete(delete_text))
@@ -257,7 +258,7 @@ async fn delete_text(
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
     ),
     responses(
-        (status = 200, description = "The text identifier",content(
+        (status = 200, description = "The full text",content(
             (String = "text/plain"),
         )),
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
@@ -278,6 +279,27 @@ async fn get_text(
 
 #[utoipa::path(
     get,
+    path = "/{text_id}/stat",
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
+    ),
+    responses(
+        (status = 200, description = "The text identifier",content(
+            (String = "text/plain"),
+        )),
+        (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
+    )
+)]
+/// Returns a full text given a text identifier
+async fn stat_text(
+    Path(text_id): Path<String>,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    textpool.stat(&text_id)
+}
+
+#[utoipa::path(
+    get,
     path = "/{text_id}/{begin}/{end}",
     params(
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
@@ -285,7 +307,7 @@ async fn get_text(
         ("end" = isize, Path, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end."),
     ),
     responses(
-        (status = 200, description = "The text",content(
+        (status = 200, description = "The requested text excerpt",content(
             (String = "text/plain"),
         )),
         (status = 406, body = apidocs::ApiError, description = "This is returned if the requested content-type (Accept) could not be delivered", content_type = "application/json"),
