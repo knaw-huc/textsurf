@@ -23,6 +23,9 @@ GET http://127.0.0.1:8080/hello
 ### Retrieve the first two characters
 GET http://127.0.0.1:8080/hello/0/2
 
+### Retrieve the middle two characters
+GET http://127.0.0.1:8080/hello/2/4
+
 ### Retrieve the last two characters
 GET http://127.0.0.1:8080/hello/-2/0
 
