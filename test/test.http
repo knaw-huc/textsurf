@@ -1,0 +1,33 @@
+### Get all text identifiers 
+GET http://127.0.0.1:8080/
+Accept: application/json
+
+### Retrieve a particular text slice (first paragraph of chapter 1)
+GET http://127.0.0.1:8080/julesverne/1615/1826
+
+### Receive the last 200 characters
+GET http://127.0.0.1:8080/julesverne/-200/0
+
+### Error when text does not exist
+GET http://127.0.0.1:8080/doesnotexist
+
+### Add a new text 
+POST http://127.0.0.1:8080/hello
+Content-Type: text/plain
+
+你好世界！
+
+### Retrieve the full text
+GET http://127.0.0.1:8080/hello
+
+### Retrieve the first two characters
+GET http://127.0.0.1:8080/hello/0/2
+
+### Retrieve the last two characters
+GET http://127.0.0.1:8080/hello/-2/0
+
+### Error when offset out of range 
+GET http://127.0.0.1:8080/hello/5/34
+
+### Delete a text 
+DELETE http://127.0.0.1:8080/hello
