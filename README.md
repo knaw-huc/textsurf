@@ -60,6 +60,15 @@ $ cd textsurf
 $ cargo install --path .
 ```
 
+Development versions may require a development version of
+[textframe](https://github.com/proycon/textframe) as well, clone it alongside textsurf and add a
+`textsurf/.cargo/config.toml` with:
+
+```toml
+#[dependencies.textframe]
+paths = ["../textframe"]
+```
+
 ## Usage
 
 Run `textsurf` to start the webservice, see `textsurf --help` for various parameters.
