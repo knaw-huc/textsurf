@@ -1,11 +1,11 @@
-.PHONE: install
+.PHONE: install testrun
 install:
 	cargo install --path .
 
 clean: 
 	rm -rf target test/docroot
 
-test: test/docroot/julesverne.txt
+testrun: test/docroot/julesverne.txt
 	cargo run -- --debug --writable -d test/docroot
 
 test/docroot/julesverne.txt: test/docroot
