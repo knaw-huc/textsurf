@@ -77,7 +77,9 @@ struct Args {
         list_texts,
         create_text,
         get_text,
+        delete_text,
         get_text_slice,
+        stat_text,
     ),
     tags(
         (name = "textsurf", description = "Webservice for efficiently serving multiple plain text documents or excerpts thereof (by unicode character offset), without everything into memory.")
@@ -290,7 +292,7 @@ async fn get_text(
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
 )]
-/// Returns a full text given a text identifier
+/// Returns metadata about a text
 async fn stat_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
