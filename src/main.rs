@@ -82,7 +82,7 @@ struct Args {
         stat_text,
     ),
     tags(
-        (name = "textsurf", description = "Webservice for efficiently serving multiple plain text documents or excerpts thereof (by unicode character offset), without everything into memory.")
+        (name = "textsurf", description = "Webservice for efficiently serving multiple plain text documents or excerpts thereof (by unicode character offset), without loading everything into memory.")
     )
 )]
 pub struct ApiDoc;
