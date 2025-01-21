@@ -1,4 +1,4 @@
-.PHONE: install testrun
+.PHONY: install testrun
 install:
 	cargo install --path .
 
