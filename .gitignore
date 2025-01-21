@@ -4,3 +4,4 @@ env/
 BRAINSTORM*
 Cargo.lock
 .cargo
+test/docroot
