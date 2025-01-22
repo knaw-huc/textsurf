@@ -88,6 +88,7 @@ impl TextPool {
                         chars: textfile.len() as u64,
                         bytes: textfile.len_utf8() as u64,
                         mtime: textfile.mtime(),
+                        checksum: textfile.checksum_digest(),
                     })
                 } else {
                     Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics

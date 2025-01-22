@@ -14,7 +14,12 @@ pub enum ApiResponse {
     Created(),
     NoContent(),
     Text(String), //TODO: Rework to work with a stream over a borrowed &str rather than needing this copy
-    Stat { chars: u64, bytes: u64, mtime: u64 },
+    Stat {
+        chars: u64,
+        bytes: u64,
+        mtime: u64,
+        checksum: String,
+    },
     JsonList(Vec<Value>),
 }
 
@@ -33,11 +38,13 @@ impl IntoResponse for ApiResponse {
                 chars,
                 bytes,
                 mtime,
+                checksum,
             } => {
-                let mut map: BTreeMap<&'static str, u64> = BTreeMap::new();
-                map.insert("chars", chars);
-                map.insert("bytes", bytes);
-                map.insert("mtime", mtime);
+                let mut map: BTreeMap<&'static str, Value> = BTreeMap::new();
+                map.insert("chars", chars.into());
+                map.insert("bytes", bytes.into());
+                map.insert("mtime", mtime.into());
+                map.insert("checksum", checksum.into());
                 (StatusCode::OK, [cors], Json(map)).into_response()
             }
         }

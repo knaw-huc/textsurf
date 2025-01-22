@@ -292,7 +292,7 @@ async fn get_text(
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
 )]
-/// Returns metadata about a text
+/// Returns metadata about a text. Returns a JSON response with fields "bytes" (filesize), "chars" (length in unicode characters), "checksum" (SHA-256) and "mtime" (unix timestamp for the file modification)
 async fn stat_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
