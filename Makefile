@@ -1,4 +1,4 @@
-.PHONY: install testrun
+.PHONY: install testrun docker docker-run
 install:
 	cargo install --path .
 
@@ -14,6 +14,10 @@ test/docroot/julesverne.txt: test/docroot
 test/docroot:
 	mkdir -p "$@"
 
+docker:
+	docker build -t proycon/textsurf .
 
+docker-run:
+	docker run --rm -v ./test/docroot:/data -p 8080:8080 proycon/textsurf
 
 

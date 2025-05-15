@@ -69,15 +69,23 @@ Development versions may require a development version of
 paths = ["../textframe"]
 ```
 
+### As a container
+
+Run ```make docker`` to build a container using docker or podman.
+
 ## Usage
 
 Run `textsurf` to start the webservice, see `textsurf --help` for various parameters.
 
+### Container usage
+
+Run `docker run --rm -v ./test/docroot:/data -p 8080:8080 proycon/textsurf` where `./test/docroot/` is the document root path containing text files that you want to mount into the container. The service will be available on `127.0.0.1:8080`. Make sure that subuid 1000 inside the container is mapped to a user on the host that has read and write access to the files. You can pass `--env DEBUG=1` for more verbose output.
+
 ## Security
 
 The webservice launches in read-only mode by default (does not allow text
-upload/deletion). Pass `--writable` to allow writing. In that case, the
-webservice is **NOT** meant to be directly opened up to the internet, as it
+upload/deletion). Pass `--writable` to allow writing (for the container, pass environment variable `WRITABLE=1`). 
+In that case, the webservice is **NOT** meant to be directly opened up to the internet, as it
 does not provide any authentication mechanism and can be easily abused as a
 an arbitrary file hosting service. Make sure it is behind a firewall or on a private network
 segment. 
