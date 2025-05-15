@@ -106,3 +106,7 @@ A: No, although for formats with light markup like Markdown or
 ReStructuredText, this service may still be useful. For heavy markup like XML
 or JSON it is not recommended as character-based addressing makes little sense
 there.
+
+*Q: How does this relate to RFC5147?*
+
+[RFC5147](https://datatracker.ietf.org/doc/html/rfc5147) specifies URI fragment identifiers for text/plain media type, in the form of, e.g: `https://example.org/test.txt#char=10,20`. It is a *fragment specification* and therefore applies to the client-side, not the server side. Textsurf, on the other hand, is a server. Clients who want to implement textsurf support can translate RFC5147 compliant URIs to textsurf API calls, effectively shifting the burden to the server instead of the client and letting textsurf do the job of returning the fragment.
