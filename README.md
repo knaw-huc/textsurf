@@ -1,4 +1,4 @@
-[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Crate](https://img.shields.io/crates/v/textsurf.svg)](https://crates.io/crates/textsurf)
 [![Docs](https://docs.rs/textsurf/badge.svg)](https://docs.rs/stamd/)
 [![GitHub release](https://img.shields.io/github/release/proycon/textsurf.svg)](https://GitHub.com/proycon/textsurf/releases/)
@@ -39,7 +39,7 @@ The following endpoints are available:
 * `GET /{text_id}/{begin}/{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive.
 * `POST /{text_id}`        - Add a new text
 * `DELETE /{text_id}`      - Delete a text
-* `GET /swagger-ui`       - Serves an interactive webinterface explaining the RESTful API specification.
+* `GET /swagger-ui`        - Serves an interactive webinterface explaining the RESTful API specification.
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
 
 ## Installation
@@ -61,7 +61,7 @@ $ cargo install --path .
 ```
 
 Development versions may require a development version of
-[textframe](https://github.com/proycon/textframe) as well, clone it alongside textsurf and add a
+[textframe](https://github.com/proycon/textframe); clone it alongside textsurf and add a
 `textsurf/.cargo/config.toml` with:
 
 ```toml
@@ -79,7 +79,7 @@ The webservice launches in read-only mode by default (does not allow text
 upload/deletion). Pass `--writable` to allow writing. In that case, the
 webservice is **NOT** meant to be directly opened up to the internet, as it
 does not provide any authentication mechanism and can be easily abused as a
-file hosting service. Make sure it is behind a firewall or on a private network
+an arbitrary file hosting service. Make sure it is behind a firewall or on a private network
 segment. 
 
 ## FAQ
@@ -89,7 +89,7 @@ segment.
 A: No, just use any HTTP/1.1 server that supports the `Range` request header. We
 deliberately do not implement this because using byte-offsets may result in malformed unicode responses.
 
-*Q: Will you support other encoding than UTF-8 and other formats than plain text?*
+*Q: Will you support other encodings than UTF-8 and other formats than plain text?*
 
 A: No, although for formats with light markup like Markdown or
 ReStructuredText, this service may still be useful. For heavy markup like XML
