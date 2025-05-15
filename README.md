@@ -4,6 +4,10 @@
 
 # Textsurf 
 
+<p align="center">
+    <img src="https://github.com/knaw-huc/textsurf/raw/master/logo.png" alt="textsurf logo" width="320" />
+</p>
+
 This is a webservice for efficiently serving plain texts and fragments thereof
 using unicode character-based addressing. It builds upon
 [textframe](https://github.com/proycon/textframe).
