@@ -3,11 +3,15 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Json, Response},
 };
+use const_format::concatcp;
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::value::Value;
 use std::collections::BTreeMap;
 use textframe;
+
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const SERVER: &'static str = concatcp!("textsurf/", VERSION);
 
 #[derive(Debug)]
 pub enum ApiResponse {
@@ -29,11 +33,14 @@ impl IntoResponse for ApiResponse {
             header::ACCESS_CONTROL_ALLOW_ORIGIN,
             HeaderValue::from_static("*"),
         );
+        let server = (header::SERVER, HeaderValue::from_str(SERVER).unwrap());
         match self {
-            Self::Created() => (StatusCode::CREATED, "created").into_response(),
-            Self::NoContent() => (StatusCode::NO_CONTENT, [cors], "deleted").into_response(),
-            Self::Text(s) => (StatusCode::OK, [cors], s).into_response(),
-            Self::JsonList(data) => (StatusCode::OK, [cors], Json(data)).into_response(),
+            Self::Created() => (StatusCode::CREATED, [cors, server], "created").into_response(),
+            Self::NoContent() => {
+                (StatusCode::NO_CONTENT, [cors, server], "deleted").into_response()
+            }
+            Self::Text(s) => (StatusCode::OK, [cors, server], s).into_response(),
+            Self::JsonList(data) => (StatusCode::OK, [cors, server], Json(data)).into_response(),
             Self::Stat {
                 chars,
                 bytes,
@@ -45,7 +52,7 @@ impl IntoResponse for ApiResponse {
                 map.insert("bytes", bytes.into());
                 map.insert("mtime", mtime.into());
                 map.insert("checksum", checksum.into());
-                (StatusCode::OK, [cors], Json(map)).into_response()
+                (StatusCode::OK, [cors, server], Json(map)).into_response()
             }
         }
     }
