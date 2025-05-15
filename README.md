@@ -1,6 +1,5 @@
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Crate](https://img.shields.io/crates/v/textsurf.svg)](https://crates.io/crates/textsurf)
-[![Docs](https://docs.rs/textsurf/badge.svg)](https://docs.rs/stamd/)
 [![GitHub release](https://img.shields.io/github/release/proycon/textsurf.svg)](https://GitHub.com/proycon/textsurf/releases/)
 
 # Textsurf 
@@ -71,7 +70,7 @@ paths = ["../textframe"]
 
 ### As a container
 
-Run ```make docker`` to build a container using docker or podman.
+Run ``make docker`` to build a container using docker or podman.
 
 ## Usage
 
