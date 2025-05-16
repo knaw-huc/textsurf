@@ -18,7 +18,7 @@ A RESTful API is offered with several end-points. The full OpenAPI specification
 interactively at the `/swagger-ui/` endpoint once it is running.
 
 The main feature that this service provides is that you can query excerpts of
-plain text by unicode character offsets. Internally, there are efficiently
+plain text by unicode character offsets. Internally, they are efficiently
 translated to byte offsets and only partially loaded from disk into memory, and
 then served.
 
