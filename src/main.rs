@@ -260,6 +260,8 @@ struct TextParams {
     begin: Option<isize>,
     end: Option<isize>,
     char: Option<String>,
+    length: Option<usize>,
+    md5: Option<String>,
 }
 
 #[utoipa::path(
@@ -270,13 +272,14 @@ struct TextParams {
         ("begin" = Option<isize>, Query, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors. The default value is 0."),
         ("end" = Option<isize>, Query, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end. The default value is 0."),
         ("char" = Option<isize>, Query, description = "Character specification according to RFC5147, begin and end values are separated by a comma"),
-        ("length" = Option<usize>, Query, description = "Optional length validity check (as in RFC5147). This is not an alternative for `end`"),
-        ("md5" = Option<usize>, Query, description = "MD5 checksum for the text that is being retrieved."),
+        ("length" = Option<usize>, Query, description = "Optional length validity check (as in RFC5147, an encoding parameter is NOT supported though as textsurf only does UTF-8 anyway). This is not an alternative for `end`. If the check fails, a 403 will be returned."),
+        ("md5" = Option<String>, Query, description = "MD5 checksum for the text that is being referenced. If the check fails, a 403 will be returned"),
     ),
     responses(
         (status = 200, description = "The text",content(
             (String = "text/plain"),
         )),
+        (status = 403, body = apidocs::ApiError, description = "Return when an explicitly passed check (length,md5) fails", content_type = "application/json"),
         (status = 406, body = apidocs::ApiError, description = "This is returned if the requested content-type (Accept) could not be delivered", content_type = "application/json"),
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
@@ -287,60 +290,73 @@ async fn get_text(
     Query(params): Query<TextParams>,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    if let Some(char) = params.char {
-        let fields: Vec<&str> = char.split(",").collect();
-        let begin: isize =
-            if fields.len() >= 1 && fields.get(0) != Some(&"") {
+    let response =
+        if let Some(char) = params.char {
+            let fields: Vec<&str> = char.split(",").collect();
+            let begin: isize = if fields.len() >= 1 && fields.get(0) != Some(&"") {
                 fields.get(0).unwrap().parse().map_err(|_| {
                     ApiError::ParameterError("char begin parameter must be an integer")
                 })?
             } else {
                 0
             };
-        let end: isize =
-            if fields.len() == 2 && fields.get(1) != Some(&"") {
+            let end: isize = if fields.len() == 2 && fields.get(1) != Some(&"") {
                 fields.get(1).unwrap().parse().map_err(|_| {
                     ApiError::ParameterError("char end parameter must be an integer")
                 })?
             } else {
                 0
             };
-        textpool.map(
-            &text_id,
-            begin,
-            end,
-            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-        )
-    } else if let (Some(begin), Some(end)) = (params.begin, params.end) {
-        textpool.map(
-            &text_id,
-            begin,
-            end,
-            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-        )
-    } else if let Some(begin) = params.begin {
-        textpool.map(
-            &text_id,
-            begin,
-            0,
-            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-        )
-    } else if let Some(end) = params.end {
-        textpool.map(
-            &text_id,
-            0,
-            end,
-            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-        )
-    } else {
-        //whole text
-        textpool.map(
-            &text_id,
-            0,
-            0,
-            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-        )
+            textpool.map(
+                &text_id,
+                begin,
+                end,
+                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+            )
+        } else if let (Some(begin), Some(end)) = (params.begin, params.end) {
+            textpool.map(
+                &text_id,
+                begin,
+                end,
+                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+            )
+        } else if let Some(begin) = params.begin {
+            textpool.map(
+                &text_id,
+                begin,
+                0,
+                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+            )
+        } else if let Some(end) = params.end {
+            textpool.map(
+                &text_id,
+                0,
+                end,
+                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+            )
+        } else {
+            //whole text
+            textpool.map(
+                &text_id,
+                0,
+                0,
+                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+            )
+        };
+    if let Ok(ApiResponse::Text(text)) = &response {
+        if let Some(length) = params.length {
+            if text.chars().count() != length {
+                return Err(ApiError::PermissionDenied("length check failed"));
+            }
+        }
+        if let Some(md5ref) = params.md5 {
+            let checksum = format!("{:x}", md5::compute(text.as_bytes()));
+            if checksum != md5ref {
+                return Err(ApiError::PermissionDenied("md5 check failed"));
+            }
+        }
     }
+    response
 }
 
 #[utoipa::path(

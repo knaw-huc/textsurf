@@ -41,5 +41,17 @@ GET http://127.0.0.1:8080/test/hello?char=-2
 ### Error when offset out of range 
 GET http://127.0.0.1:8080/test/hello?char=5,34
 
+### length check
+GET http://127.0.0.1:8080/test/hello?char=2,4&length=2
+
+### length check (fail)
+GET http://127.0.0.1:8080/test/hello?char=2,4&length=4
+
+### MD5 check
+GET http://127.0.0.1:8080/test/hello?char=2,4&md5=c086b3008aca0efa8f2ded065d6afb50
+
+### MD5 check (fail)
+GET http://127.0.0.1:8080/test/hello?char=2,4&md5=c086b3008aca0efa8f2ded065d6afb51
+
 ### Delete a text 
 DELETE http://127.0.0.1:8080/test/hello
