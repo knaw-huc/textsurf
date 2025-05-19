@@ -3,6 +3,7 @@ use axum::{
     http::Request, routing::delete, routing::get, routing::post, Router,
 };
 use clap::Parser;
+use smallvec::SmallVec;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
@@ -126,6 +127,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(list_texts))
         .route("/stat/{*text_id}", get(stat_text))
+        .route("/s/{text_id}/{begin}/{end}", get(get_text_slice))
         .route("/{*text_id}", get(get_text))
         .route("/{*text_id}", post(create_text))
         .route("/{*text_id}", delete(delete_text))
@@ -292,7 +294,7 @@ async fn get_text(
 ) -> Result<ApiResponse, ApiError> {
     let response =
         if let Some(char) = params.char {
-            let fields: Vec<&str> = char.split(",").collect();
+            let fields: SmallVec<[&str; 2]> = char.split(",").collect();
             let begin: isize = if fields.len() >= 1 && fields.get(0) != Some(&"") {
                 fields.get(0).unwrap().parse().map_err(|_| {
                     ApiError::ParameterError("char begin parameter must be an integer")
@@ -382,7 +384,7 @@ async fn stat_text(
 
 #[utoipa::path(
     get,
-    path = "/{text_id}/{begin}/{end}",
+    path = "/s/{text_id}/{begin}/{end}",
     params(
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
         ("begin" = isize, Path, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors."),

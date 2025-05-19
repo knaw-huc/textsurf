@@ -40,14 +40,14 @@ The following endpoints are available:
 * `GET /{text_id}`         - Returns a full text given its identifier.
 * `GET /{text_id}?char={begin},{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. This implements part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
 * `GET /{text_id}?begin={begin}&end={end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. Alternative syntax.
+* `GET /s/{text_id}/{begin}/{end}` - Simple pure URL call. Only works with simple text IDs (see note at the end).
 * `POST /{text_id}`        - Add a new text
 * `DELETE /{text_id}`      - Delete a text
 * `GET /stat/{text_id}`    - Returns file size and modification date (JSON)
 * `GET /swagger-ui`        - Serves an interactive webinterface explaining the RESTful API specification.
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
 
-In all these instances `text_id` may itself consist of a path. Only file extension (`.txt` by default) is not included.
-This allows arbitrary hierarchies to organize text files. 
+In all these instances except for the `/s/` endpoint, `text_id` may itself consist of a path. Only file extension (`.txt` by default) is not included. This allows arbitrary hierarchies to organize text files. 
 
 ## Installation
 

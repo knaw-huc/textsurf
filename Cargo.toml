@@ -27,3 +27,4 @@ utoipa-swagger-ui = { version = "9.0", features = ["axum", "vendored"] }
 const_format = "0.2.34"
 walkdir = "2.5.0"
 md5 = "0.7.0"
+smallvec = "1.15.0"
