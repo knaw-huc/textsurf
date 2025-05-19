@@ -217,10 +217,16 @@ impl TextPool {
                 if let Ok(mut texts) = self.texts.write() {
                     texts.insert(id.to_string(), Arc::new(RwLock::new(textfile)));
                 } else {
+                    if let Ok(mut states) = self.states.write() {
+                        states.remove(id);
+                    }
                     return Err(ApiError::InternalError("Lock poisoned"));
                 }
             }
             Err(e) => {
+                if let Ok(mut states) = self.states.write() {
+                    states.remove(id);
+                }
                 return Err(ApiError::TextError(e));
             }
         }
