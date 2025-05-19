@@ -8,6 +8,9 @@ GET http://127.0.0.1:8080/julesverne?begin=1615&end=1826
 ### Retrieve a particular text slice (char-schema syntax like in RFC5147)
 GET http://127.0.0.1:8080/julesverne?char=1615,1826
 
+### Retrieve a particular text slice (line-schema syntax like in RFC5147)
+GET http://127.0.0.1:8080/julesverne?line=500,510
+
 ### Receive the last 200 characters
 GET http://127.0.0.1:8080/julesverne?begin=-200
 
@@ -45,7 +48,7 @@ GET http://127.0.0.1:8080/test/hello?char=5,34
 GET http://127.0.0.1:8080/test/hello?char=2,4&length=2
 
 ### length check (fail)
-GET http://127.0.0.1:8080/test/hello?char=2,4&length=4
+GET http://127.0.0.1:8080/test/hello?char=2,4&length=2
 
 ### MD5 check
 GET http://127.0.0.1:8080/test/hello?char=2,4&md5=c086b3008aca0efa8f2ded065d6afb50

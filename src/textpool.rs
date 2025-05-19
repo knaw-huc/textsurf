@@ -5,7 +5,7 @@ use std::io::prelude::*;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use textframe::TextFile;
+use textframe::{TextFile, TextFileMode};
 use tracing::info;
 
 const WAIT_INTERVAL: Duration = Duration::from_millis(100);
@@ -20,6 +20,7 @@ pub struct TextPool {
     basedir: PathBuf,
     extension: String,
     readonly: bool,
+    lines: bool,
     unload_time: u64,
     texts: RwLock<HashMap<String, Arc<RwLock<TextFile>>>>, //the extra Arc allows us to drop the lock earlier
     states: RwLock<HashMap<String, State>>,
@@ -30,6 +31,7 @@ impl TextPool {
         basedir: impl Into<PathBuf>,
         extension: impl Into<String>,
         readonly: bool,
+        lines: bool,
         unload_time: u64,
     ) -> Result<Self, &'static str> {
         let basedir: PathBuf = basedir.into();
@@ -41,6 +43,7 @@ impl TextPool {
                 extension: extension.into(),
                 texts: HashMap::new().into(),
                 states: HashMap::new().into(),
+                lines,
                 unload_time,
                 readonly,
             })
@@ -66,6 +69,29 @@ impl TextPool {
                 if let Ok(mut textfile) = textlock.write() {
                     //we need a write lock because we may load a new part of the text from disk here
                     let text = textfile.get_or_load(begin, end)?; //this triggers a load from disk of a part of the text unless it's already covered by a part that was loaded earlier
+                    f(&text)
+                } else {
+                    Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
+                }
+            } else {
+                unreachable!("text file should have been  loaded in first line")
+            }
+        } else {
+            Err(ApiError::InternalError("Lock poisoned: textfiles"))
+        }
+    }
+
+    pub fn map_lines<F, T>(&self, id: &str, begin: isize, end: isize, f: F) -> Result<T, ApiError>
+    where
+        F: FnOnce(&str) -> Result<T, ApiError>,
+    {
+        let _state = self.load(id)?;
+        if let Ok(texts) = self.texts.read() {
+            if let Some(textlock) = texts.get(id).cloned() {
+                drop(texts); //compiler should be able to infer this but better safe than sorry
+                if let Ok(mut textfile) = textlock.write() {
+                    //we need a write lock because we may load a new part of the text from disk here
+                    let text = textfile.get_or_load_lines(begin, end)?; //this triggers a load from disk of a part of the text unless it's already covered by a part that was loaded earlier
                     f(&text)
                 } else {
                     Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
@@ -181,7 +207,12 @@ impl TextPool {
         //it loads/computes only the index, not the full text.
         info!("Loading {}", id);
         let indexname = filename.with_extension("index"); //cached index
-        match TextFile::new(filename, Some(&indexname)) {
+        let mode = if self.lines {
+            TextFileMode::WithLineIndex
+        } else {
+            TextFileMode::NoLineIndex
+        };
+        match TextFile::new(filename, Some(&indexname), mode) {
             Ok(textfile) => {
                 if let Ok(mut texts) = self.texts.write() {
                     texts.insert(id.to_string(), Arc::new(RwLock::new(textfile)));

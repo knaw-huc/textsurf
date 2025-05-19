@@ -67,6 +67,14 @@ struct Args {
     writable: bool,
 
     #[arg(
+        short = 'L',
+        long,
+        default_value_t = false,
+        help = "No line index; disables iquerying by line and makes for smaller indices"
+    )]
+    no_lines: bool,
+
+    #[arg(
         long,
         default_value_t = false,
         help = "Output logging info on incoming requests"
@@ -98,6 +106,7 @@ async fn main() {
         args.basedir,
         args.extension,
         !args.writable,
+        !args.no_lines,
         args.unload_time,
     )
     .expect("Base directory must exist");
@@ -262,6 +271,7 @@ struct TextParams {
     begin: Option<isize>,
     end: Option<isize>,
     char: Option<String>,
+    line: Option<String>,
     length: Option<usize>,
     md5: Option<String>,
 }
@@ -273,9 +283,10 @@ struct TextParams {
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk. It may contain zero or more path components."),
         ("begin" = Option<isize>, Query, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors. The default value is 0."),
         ("end" = Option<isize>, Query, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end. The default value is 0."),
-        ("char" = Option<isize>, Query, description = "Character specification according to RFC5147, begin and end values are separated by a comma"),
+        ("char" = Option<isize>, Query, description = "Character range specification conforming to RFC5147, begin and end values are separated by a comma, 0-indexed, end is non-inclusive"),
+        ("line" = Option<isize>, Query, description = "Line range specification conforming to RFC5147, begin and end values are separated by a comma, 0-indexed (first line is 0!), end is non-inclusive"),
         ("length" = Option<usize>, Query, description = "Optional length validity check (as in RFC5147, an encoding parameter is NOT supported though as textsurf only does UTF-8 anyway). This is not an alternative for `end`. If the check fails, a 403 will be returned."),
-        ("md5" = Option<String>, Query, description = "MD5 checksum for the text that is being referenced. If the check fails, a 403 will be returned"),
+        ("md5" = Option<String>, Query, description = "MD5 checksum for the text that is being referenced (as defined by RFC5147). If the check fails, a 403 will be returned"),
     ),
     responses(
         (status = 200, description = "The text",content(
@@ -310,6 +321,28 @@ async fn get_text(
                 0
             };
             textpool.map(
+                &text_id,
+                begin,
+                end,
+                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+            )
+        } else if let Some(line) = params.line {
+            let fields: SmallVec<[&str; 2]> = line.split(",").collect();
+            let begin: isize = if fields.len() >= 1 && fields.get(0) != Some(&"") {
+                fields.get(0).unwrap().parse().map_err(|_| {
+                    ApiError::ParameterError("char begin parameter must be an integer")
+                })?
+            } else {
+                0
+            };
+            let end: isize = if fields.len() == 2 && fields.get(1) != Some(&"") {
+                fields.get(1).unwrap().parse().map_err(|_| {
+                    ApiError::ParameterError("char end parameter must be an integer")
+                })?
+            } else {
+                0
+            };
+            textpool.map_lines(
                 &text_id,
                 begin,
                 end,
