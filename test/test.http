@@ -3,37 +3,43 @@ GET http://127.0.0.1:8080/
 Accept: application/json
 
 ### Retrieve a particular text slice (first paragraph of chapter 1)
-GET http://127.0.0.1:8080/julesverne/1615/1826
+GET http://127.0.0.1:8080/julesverne?begin=1615&end=1826
+
+### Retrieve a particular text slice (char-schema syntax like in RFC5147)
+GET http://127.0.0.1:8080/julesverne?char=1615,1826
 
 ### Receive the last 200 characters
-GET http://127.0.0.1:8080/julesverne/-200/0
+GET http://127.0.0.1:8080/julesverne?begin=-200
+
+### Retrieve a particular text slice (char-schema syntax like in RFC5147)
+GET http://127.0.0.1:8080/julesverne?char=-200
 
 ### Error when text does not exist
 GET http://127.0.0.1:8080/doesnotexist
 
 ### Get metadata (size, last modification time)
-GET http://127.0.0.1:8080/julesverne/stat
+GET http://127.0.0.1:8080/stat/julesverne
 
-### Add a new text 
-POST http://127.0.0.1:8080/hello
+### Add a new text (note that this adds a directory test to place it in)
+POST http://127.0.0.1:8080/test/hello
 Content-Type: text/plain
 
 你好世界！
 
 ### Retrieve the full text
-GET http://127.0.0.1:8080/hello
+GET http://127.0.0.1:8080/test/hello
 
 ### Retrieve the first two characters
-GET http://127.0.0.1:8080/hello/0/2
+GET http://127.0.0.1:8080/test/hello?char=0,2
 
 ### Retrieve the middle two characters
-GET http://127.0.0.1:8080/hello/2/4
+GET http://127.0.0.1:8080/test/hello?char=2,4
 
 ### Retrieve the last two characters
-GET http://127.0.0.1:8080/hello/-2/0
+GET http://127.0.0.1:8080/test/hello?char=-2
 
 ### Error when offset out of range 
-GET http://127.0.0.1:8080/hello/5/34
+GET http://127.0.0.1:8080/test/hello?char=5,34
 
 ### Delete a text 
-DELETE http://127.0.0.1:8080/hello
+DELETE http://127.0.0.1:8080/test/hello

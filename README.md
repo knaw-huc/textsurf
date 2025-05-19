@@ -38,12 +38,16 @@ The following endpoints are available:
 
 * `GET /`                  - Returns a simple JSON list of all available texts.
 * `GET /{text_id}`         - Returns a full text given its identifier.
-* `GET /{text_id}/stat`    - Returns file size and modification date (JSON)
-* `GET /{text_id}/{begin}/{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive.
+* `GET /{text_id}?char={begin},{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. This implements part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
+* `GET /{text_id}?begin={begin}&end={end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. Alternative syntax.
 * `POST /{text_id}`        - Add a new text
 * `DELETE /{text_id}`      - Delete a text
+* `GET /stat/{text_id}`    - Returns file size and modification date (JSON)
 * `GET /swagger-ui`        - Serves an interactive webinterface explaining the RESTful API specification.
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
+
+In all these instances `text_id` may itself consist of a path. Only file extension (`.txt` by default) is not included.
+This allows arbitrary hierarchies to organize text files. 
 
 ## Installation
 
@@ -109,4 +113,4 @@ there.
 
 *Q: How does this relate to RFC5147?*
 
-[RFC5147](https://datatracker.ietf.org/doc/html/rfc5147) specifies URI fragment identifiers for text/plain media type, in the form of, e.g: `https://example.org/test.txt#char=10,20`. It is a *fragment specification* and therefore applies to the client-side, not the server side. Textsurf, on the other hand, is a server. Clients who want to implement textsurf support can translate RFC5147 compliant URIs to textsurf API calls, effectively shifting the burden to the server instead of the client and letting textsurf do the job of returning the fragment.
+[RFC5147](https://datatracker.ietf.org/doc/html/rfc5147) specifies URI fragment identifiers for text/plain media type, in the form of, e.g: `https://example.org/test.txt#char=10,20`. It is a *fragment specification* and therefore applies to the client-side, not the server side. Textsurf, on the other hand, is a server. Clients who want to implement textsurf support can translate RFC5147 compliant URIs to textsurf API calls, which is modelled after the same specification. This effectively shifts the burden to the server instead of the client and letting textsurf do the job of returning the fragment.

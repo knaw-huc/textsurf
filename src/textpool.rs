@@ -106,11 +106,14 @@ impl TextPool {
         if self.readonly {
             return Err(ApiError::PermissionDenied("Service is readonly"));
         }
-        let filename = self.filename_from_id(id)?;
+        let filename = self.filename_from_id(id)?; //this also does validation and security checks
         if filename.exists() {
             Err(ApiError::PermissionDenied("Text already exists"))
         } else {
             info!("Creating {}", id);
+            if let Some(parentdir) = filename.parent() {
+                std::fs::create_dir_all(parentdir)?;
+            }
             let mut file = File::create(filename)?;
             file.write(text.as_bytes())?;
             Ok(())
@@ -294,13 +297,10 @@ impl TextPool {
         //some security checks so the user can't break out of the configured base directory
         if filename.is_absolute() {
             return Err(ApiError::NotFound(
-                "No such annotationstore exists (no absolute paths allowed)",
+                "No such text exists (no absolute paths allowed)",
             ));
         }
-        for (i, component) in filename.components().enumerate() {
-            if i > 0 {
-                return Err(ApiError::NotFound("Filename may not contain a directory"));
-            }
+        for component in filename.components() {
             if component == Component::ParentDir {
                 return Err(ApiError::NotFound(
                     "No such text exists (no parent directories allowed)",

@@ -1,6 +1,6 @@
 use axum::{
-    body::Body, extract::Path, extract::State, http::HeaderMap, http::HeaderValue, http::Request,
-    routing::delete, routing::get, routing::post, Router,
+    body::Body, extract::Path, extract::Query, extract::State, http::HeaderMap, http::HeaderValue,
+    http::Request, routing::delete, routing::get, routing::post, Router,
 };
 use clap::Parser;
 use std::sync::Arc;
@@ -9,6 +9,7 @@ use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
 
+use serde::Deserialize;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -17,6 +18,7 @@ mod common;
 mod textpool;
 use common::{ApiError, ApiResponse};
 use textpool::TextPool;
+use walkdir::WalkDir;
 
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
@@ -123,11 +125,10 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(list_texts))
-        .route("/{text_id}/{begin}/{end}", get(get_text_slice))
-        .route("/{text_id}/stat", get(stat_text))
-        .route("/{text_id}", get(get_text))
-        .route("/{text_id}", post(create_text))
-        .route("/{text_id}", delete(delete_text))
+        .route("/stat/{*text_id}", get(stat_text))
+        .route("/{*text_id}", get(get_text))
+        .route("/{*text_id}", post(create_text))
+        .route("/{*text_id}", delete(delete_text))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
         .with_state(textpool.clone());
@@ -181,20 +182,21 @@ async fn shutdown_signal(textpool: Arc<TextPool>) {
         (status = 200, body = [String], description = "Returns a simple list of all available texts"),
     )
 )]
-/// Returns all available texts
+/// Returns all available texts, recursively
 async fn list_texts(
     textpool: State<Arc<TextPool>>,
     request: Request<Body>,
 ) -> Result<ApiResponse, ApiError> {
     let extension = format!(".{}", textpool.extension());
     let mut store_ids: Vec<String> = Vec::new();
-    for entry in std::fs::read_dir(textpool.basedir())
-        .map_err(|_| ApiError::InternalError("Unable to read base directory"))?
+    for entry in WalkDir::new(textpool.basedir())
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
     {
-        let entry = entry.unwrap();
-        if let Some(filename) = entry.file_name().to_str() {
-            if let Some(pos) = filename.find(&extension) {
-                store_ids.push(filename[0..pos].to_string());
+        if let Some(filepath) = entry.path().to_str() {
+            if let Some(pos) = filepath.find(&extension) {
+                store_ids.push(filepath[0..pos].to_string());
             }
         }
     }
@@ -212,10 +214,10 @@ async fn list_texts(
 
 #[utoipa::path(
     post,
-    path = "/{text_id}",
+    path = "/{*text_id}",
     request_body( content_type = "text/plain", content = String),
     params(
-        ("text_id" = String, Path, description = "The identifier of the text"),
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
     ),
     responses(
         (status = 201, description = "Returned when successfully created"),
@@ -234,9 +236,9 @@ async fn create_text(
 
 #[utoipa::path(
     delete,
-    path = "/{text_id}",
+    path = "/{*text_id}",
     params(
-        ("text_id" = String, Path, description = "The identifier of the text"),
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
     ),
     responses(
         (status = 204, description = "Returned when successfully deleted"),
@@ -253,37 +255,99 @@ async fn delete_text(
     Ok(ApiResponse::NoContent())
 }
 
-#[utoipa::path(
-    get,
-    path = "/{text_id}",
-    params(
-        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
-    ),
-    responses(
-        (status = 200, description = "The full text",content(
-            (String = "text/plain"),
-        )),
-        (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
-    )
-)]
-/// Returns a full text given a text identifier
-async fn get_text(
-    Path(text_id): Path<String>,
-    textpool: State<Arc<TextPool>>,
-) -> Result<ApiResponse, ApiError> {
-    textpool.map(
-        &text_id,
-        0,
-        0,
-        |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-    )
+#[derive(Deserialize)]
+struct TextParams {
+    begin: Option<isize>,
+    end: Option<isize>,
+    char: Option<String>,
 }
 
 #[utoipa::path(
     get,
-    path = "/{text_id}/stat",
+    path = "/{*text_id}",
     params(
-        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
+        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk. It may contain zero or more path components."),
+        ("begin" = Option<isize>, Query, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors. The default value is 0."),
+        ("end" = Option<isize>, Query, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end. The default value is 0."),
+        ("char" = Option<isize>, Query, description = "Character specification according to RFC5147, begin and end values are separated by a comma"),
+        ("length" = Option<usize>, Query, description = "Optional length validity check (as in RFC5147). This is not an alternative for `end`"),
+        ("md5" = Option<usize>, Query, description = "MD5 checksum for the text that is being retrieved."),
+    ),
+    responses(
+        (status = 200, description = "The text",content(
+            (String = "text/plain"),
+        )),
+        (status = 406, body = apidocs::ApiError, description = "This is returned if the requested content-type (Accept) could not be delivered", content_type = "application/json"),
+        (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
+    )
+)]
+/// Returns a text given a text identifier. Returns either a full text or a portion thereof if offsets were specified.
+async fn get_text(
+    Path(text_id): Path<String>,
+    Query(params): Query<TextParams>,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    if let Some(char) = params.char {
+        let fields: Vec<&str> = char.split(",").collect();
+        let begin: isize =
+            if fields.len() >= 1 && fields.get(0) != Some(&"") {
+                fields.get(0).unwrap().parse().map_err(|_| {
+                    ApiError::ParameterError("char begin parameter must be an integer")
+                })?
+            } else {
+                0
+            };
+        let end: isize =
+            if fields.len() == 2 && fields.get(1) != Some(&"") {
+                fields.get(1).unwrap().parse().map_err(|_| {
+                    ApiError::ParameterError("char end parameter must be an integer")
+                })?
+            } else {
+                0
+            };
+        textpool.map(
+            &text_id,
+            begin,
+            end,
+            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+        )
+    } else if let (Some(begin), Some(end)) = (params.begin, params.end) {
+        textpool.map(
+            &text_id,
+            begin,
+            end,
+            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+        )
+    } else if let Some(begin) = params.begin {
+        textpool.map(
+            &text_id,
+            begin,
+            0,
+            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+        )
+    } else if let Some(end) = params.end {
+        textpool.map(
+            &text_id,
+            0,
+            end,
+            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+        )
+    } else {
+        //whole text
+        textpool.map(
+            &text_id,
+            0,
+            0,
+            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+        )
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/stat/{*text_id}",
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk. It may contain zero or more path components."),
     ),
     responses(
         (status = 200, description = "The text identifier",content(
@@ -316,7 +380,7 @@ async fn stat_text(
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
 )]
-/// Returns a text slice given a text identifier and an offset
+/// Returns a text slice given a singular text identifier and an offset
 async fn get_text_slice(
     Path((text_id, begin, end)): Path<(String, isize, isize)>,
     textpool: State<Arc<TextPool>>,

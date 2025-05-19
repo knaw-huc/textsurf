@@ -64,6 +64,7 @@ pub enum ApiError {
     NotFound(&'static str),
     NotAcceptable(&'static str),
     PermissionDenied(&'static str),
+    ParameterError(&'static str),
     TextError(textframe::Error),
 }
 
@@ -85,6 +86,10 @@ impl Serialize for ApiError {
             }
             Self::PermissionDenied(s) => {
                 state.serialize_field("name", "PermissionDenied")?;
+                state.serialize_field("message", s)?;
+            }
+            Self::ParameterError(s) => {
+                state.serialize_field("name", "ParameterError")?;
                 state.serialize_field("message", s)?;
             }
             Self::InternalError(s) => {
