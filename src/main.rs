@@ -205,7 +205,12 @@ async fn list_texts(
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        if let Some(filepath) = entry.path().to_str() {
+        if let Some(filepath) = entry
+            .path()
+            .strip_prefix(textpool.basedir())
+            .expect("prefix should be there")
+            .to_str()
+        {
             if let Some(pos) = filepath.find(&extension) {
                 store_ids.push(filepath[0..pos].to_string());
             }
