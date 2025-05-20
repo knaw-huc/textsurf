@@ -250,7 +250,7 @@ impl TextPool {
         let basename: PathBuf = self.check_basename(id)?;
         let mut filename = self.basedir.clone().join(basename.clone());
         if !self.extension.is_empty() {
-            filename = filename.with_extension(&self.extension);
+            filename = filename.with_extension(&self.extension); //does not duplicate an extension if already set
         }
         Ok(filename)
     }

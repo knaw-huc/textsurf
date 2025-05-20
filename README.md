@@ -61,7 +61,7 @@ These are extra endpoints that are available but not part of the Text Referencin
 
 ## Text Referencing API: Formal Specification
 
-Textsurf implements a **Text Referencing API** that is directly derived from 
+Textsurf implements a minimal **Text Referencing API** that is directly derived from 
 [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt). RFC5147 specifies URI
 *fragment identifiers* for the `text/plain` media type, in the form of, e.g:
 `https://example.org/test.txt#char=10,20`. It is a *fragment specification* and
