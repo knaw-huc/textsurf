@@ -20,7 +20,7 @@ interactively at the `/swagger-ui/` endpoint once it is running.
 The main feature that this service provides is that you can query excerpts of
 plain text by unicode character offsets. Internally, they are efficiently
 translated to byte offsets and only partially loaded from disk into memory, and
-then served.
+then served. The addressing syntax for the API is derived from [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt).
 
 The service allows upload and deletion of texts, provided this feature is
 enabled on startup using the `--writable` flag (make sure you understand the security implications outline further down).
