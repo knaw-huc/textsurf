@@ -248,12 +248,11 @@ impl TextPool {
     fn filename_from_id(&self, id: &str) -> Result<PathBuf, ApiError> {
         //some security checks so the user can't break out of the configured base directory
         let basename: PathBuf = self.check_basename(id)?;
-
-        Ok(self
-            .basedir
-            .clone()
-            .join(basename.clone())
-            .with_extension(&self.extension))
+        let mut filename = self.basedir.clone().join(basename.clone());
+        if !self.extension.is_empty() {
+            filename = filename.with_extension(&self.extension);
+        }
+        Ok(filename)
     }
 
     fn wait_until_ready(&self, id: &str) -> Result<State, ApiError> {

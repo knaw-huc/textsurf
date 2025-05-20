@@ -47,7 +47,7 @@ struct Args {
         short = 'e',
         long,
         default_value_os = "txt",
-        help = "The extension for plain text files"
+        help = "The file extension for plain text files. You can set this to empty if you want extensions in the URL or if you don't want a single file extension."
     )]
     extension: String,
 
@@ -205,15 +205,23 @@ async fn list_texts(
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        if let Some(filepath) = entry
+        let filepath = entry
             .path()
             .strip_prefix(textpool.basedir())
-            .expect("prefix should be there")
-            .to_str()
-        {
-            if let Some(pos) = filepath.find(&extension) {
-                store_ids.push(filepath[0..pos].to_string());
+            .expect("prefix should be there");
+        if !textpool.extension().is_empty() {
+            if let Some(filepath_s) = filepath.to_str() {
+                if let Some(pos) = filepath_s.find(&extension) {
+                    store_ids.push(filepath_s[0..pos].to_string());
+                }
             }
+        } else if filepath.is_file() {
+            store_ids.push(
+                filepath
+                    .to_str()
+                    .expect("filename must be UTF-8")
+                    .to_string(),
+            );
         }
     }
     match negotiate_content_type(request.headers(), &[CONTENT_TYPE_JSON]) {
