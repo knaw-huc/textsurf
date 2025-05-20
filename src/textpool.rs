@@ -251,8 +251,19 @@ impl TextPool {
         let mut filename = self.basedir.clone().join(basename.clone());
         if !self.extension.is_empty() {
             filename = filename.with_extension(&self.extension); //does not duplicate an extension if already set
+        } else if filename.extension().map(|x| x.as_encoded_bytes()) == Some(b"index") {
+            return Err(ApiError::NotFound("An index is not a valid text"));
         }
-        Ok(filename)
+        if filename
+            .file_name()
+            .map(|x| x.as_encoded_bytes().first() == Some(&46)) //ASCII for .  (might break on other OSes that use something like UTF-16
+            .unwrap_or(false)
+        {
+            //hidden files are never served
+            return Err(ApiError::NotFound("No such file"));
+        } else {
+            Ok(filename)
+        }
     }
 
     fn wait_until_ready(&self, id: &str) -> Result<State, ApiError> {

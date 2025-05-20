@@ -215,7 +215,13 @@ async fn list_texts(
                     store_ids.push(filepath_s[0..pos].to_string());
                 }
             }
-        } else if filepath.is_file() {
+        } else if filepath.is_file()
+            && filepath.extension().map(|x| x.as_encoded_bytes()) != Some(b"index")
+            && filepath
+                .to_str()
+                .map(|s| !s.starts_with("."))
+                .unwrap_or(false)
+        {
             store_ids.push(
                 filepath
                     .to_str()
