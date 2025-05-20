@@ -32,25 +32,74 @@ comparable repository or version control system will also do.
 
 Please also see the FAQ section further below.
 
-## Web API
+## Text Referencing API: Endpoints
 
-The following endpoints are available:
+The following endpoints are defined and consistute the *Text Referencing API*, which will be more formally defined in a later section:
 
 * `GET /`                  - Returns a simple JSON list of all available texts.
 * `GET /{text_id}`         - Returns a full text given its identifier.
 * `GET /{text_id}?char={begin},{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. This implements part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
-* `GET /{text_id}?begin={begin}&end={end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. Alternative syntax similar to the above.
 * `GET /{text_id}?line={begin},{end}` - Returns a text selection inside a resource by line range. Offset are 0-indexed lines (so the first line is 0 and not 1!), end is non inclusive. This implements another part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
-* `GET /s/{text_id}/{begin}/{end}` - Simple pure URL call. Only works with simple text IDs (see note at the end).
-* `POST /{text_id}`        - Add a new text
 * `DELETE /{text_id}`      - Delete a text
+* `POST /{text_id}`        - Add a new text
 * `GET /stat/{text_id}`    - Returns file size and modification date (JSON)
+
+In all these instances `text_id` may itself consist of any number of path
+components, a filename, and optionally an extension. If no explicit extension
+is provided, the server may use an implied a default one (usually `.txt`).
+Allowing a full path allows you to use arbitrary hierarchies to organize text files. 
+
+### Extra endpoints
+
+These are extra endpoints that are available but not part of the Text Referencing API:
+
+* `GET /{text_id}?begin={begin}&end={end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. Alternative syntax similar to the above.
+* `GET /s/{text_id}/{begin}/{end}` - Simple pure URL call. Only works with simple text IDs without any path components!
 * `GET /swagger-ui`        - Serves an interactive webinterface explaining the RESTful API specification.
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
 
-In all these instances except for the `/s/` endpoint, `text_id` may itself consist of a path. Only file extension (`.txt` by default) is not included. This allows arbitrary hierarchies to organize text files. 
+
+## Text Referencing API: Formal Specification
+
+Textsurf implements a **Text Referencing API** that is directly derived from 
+[RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt). RFC5147 specifies URI
+*fragment identifiers* for the `text/plain` media type, in the form of, e.g:
+`https://example.org/test.txt#char=10,20`. It is a *fragment specification* and
+therefore applies to the client-side, not the server side. Textsurf, however, is a server. 
+We take this RFC5417 spec and turn it into an API.
+
+The capitalized key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+"SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and
+"OPTIONAL" in this section are to be interpreted as described in 
+[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+This Text Referencing API lays down the following constraints:
+
+1. A text file *MUST BE* unambiguous identified by a URI (as defined by [RFC3986](https://www.rfc-editor.org/rfc/rfc3986)). 
+A URI to a text file as a whole *SHOULD NOT* have a query part (starting with `?`). Example: `https://example.org/test.txt`
+    1. The text file *MUST BE* retrievable by its full extension. It *MAY* also be retrievable by having an implied default extension. Example: `https://example.org/test`
+    2. There *SHOULD NOT* be a trailing slash.
+    3. The URI *SHOULD* support an arbitrary number of path components after the base components where the server resides, allowing a full directory hierarchy to organize text files. Example: `https://example.org/deep/in/the/forest/test.txt`
+2. A text file *MUST* be retrievable via a `HTTP GET` call on its URI.
+    1. A text file *MUST* be served with media-type `text/plain` with character encoding `UTF-8` and UNIX line endings. (linefeed,  `0x0a`, `\n`)
+3. A text file *MUST* be submittable via a `HTTP POST` call on its URI, provided the server is not in a read-only state.
+    1. If the text file contains path components, the necessary directories *SHOULD* be automatically created.
+    2. The file is transferred in the request body.
+4. A text file *MUST* be removable via a `HTTP DELETE` call on its URI, provided the server is not in a read-only state.
+5. A text excerpt inside a text file is identified by using the fragment identifier syntax 
+as defined in section 3 of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) in the query part (starting with `?`) of its URI, rather than in the  fragment part (starting with `#`). Examples: `https://example.org/test.txt?char=10,20` ,  `https://example.org/test.txt?line=0,1` ,  `https://example.org/test.txt?line=0,1&length=104&md5=b07ec26b0c68933887b28278becdc5f9`
+    * A text excerpt is defined as a single contingent subpart of the whole text where the begin and endpoints are defined.
+    * This means that clients implementing RFC5147 can effectively shift the burden of implementation to a server by moving the fragment part to the query part. (i.e. replacing `#` with `?`).
+7. An endpoint `/stat/{text_id}` *SHOULD* be provided that provides at least the following information as keys in a JSON response:
+    * `bytes` - The filesize of the file in bytes
+    * `chars` - The length of the text file in unicode points.
+    * `checksum` - A SHA-256 checksum of the entire textfile.
+    * `mtime` - The modification time of the file in number of seconds since the unix epoch (1970-01-01 00:00).
+6. Any of the endpoints *MAY* be restricted to authenticated or authorized users only., This specification does not define a specific mechanism for that as it is beyond it's scope.
 
 ## Installation
+
+You can install textsurf as follows:
 
 ### From source
 
@@ -111,7 +160,3 @@ A: No, although for formats with light markup like Markdown or
 ReStructuredText, this service may still be useful. For heavy markup like XML
 or JSON it is not recommended as character-based addressing makes little sense
 there.
-
-*Q: How does this relate to RFC5147?*
-
-[RFC5147](https://datatracker.ietf.org/doc/html/rfc5147) specifies URI fragment identifiers for text/plain media type, in the form of, e.g: `https://example.org/test.txt#char=10,20`. It is a *fragment specification* and therefore applies to the client-side, not the server side. Textsurf, on the other hand, is a server. Clients who want to implement textsurf support can translate RFC5147 compliant URIs to textsurf API calls, which is modelled after the same specification. This effectively shifts the burden to the server instead of the client and letting textsurf do the job of returning the fragment.
