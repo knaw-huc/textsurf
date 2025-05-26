@@ -1,6 +1,8 @@
 FROM alpine:latest
 
-RUN apk update && apk add cargo runit sudo git && adduser -u 1000 -D user && mkdir -p /usr/src /etc/service/textsurf
+ARG UID=1000
+
+RUN apk update && apk add cargo runit sudo git && adduser -u $UID -D user && mkdir -p /usr/src /etc/service/textsurf
 
 COPY . /usr/src/
 
