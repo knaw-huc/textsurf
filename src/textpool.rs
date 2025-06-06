@@ -249,8 +249,17 @@ impl TextPool {
         //some security checks so the user can't break out of the configured base directory
         let basename: PathBuf = self.check_basename(id)?;
         let mut filename = self.basedir.clone().join(basename.clone());
-        if !self.extension.is_empty() && filename.extension() == None {
-            filename = filename.with_extension(&self.extension);
+        if !self.extension.is_empty() {
+            if filename.extension() == None {
+                filename = filename.with_extension(&self.extension);
+            } else if filename.extension().unwrap() != self.extension.as_str() {
+                //add extension
+                filename = filename.with_file_name(format!(
+                    "{}.{}",
+                    filename.file_name().unwrap().to_string_lossy(),
+                    self.extension
+                ));
+            }
         } else if filename.extension().map(|x| x.as_encoded_bytes()) == Some(b"index") {
             return Err(ApiError::NotFound("An index is not a valid text"));
         }
