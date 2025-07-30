@@ -59,7 +59,7 @@ These are extra endpoints that are available but not part of the Text Referencin
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
 
 
-## Text Referencing API: Formal Specification
+## Text Referencing API 1: Formal Specification
 
 Textsurf implements a minimal **Text Referencing API** that is directly derived from 
 [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt). RFC5147 specifies URI
@@ -96,6 +96,48 @@ as defined in section 3 of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt)
     * `checksum` - A SHA-256 checksum of the entire textfile.
     * `mtime` - The modification time of the file in number of seconds since the unix epoch (1970-01-01 00:00).
 6. Any of the endpoints *MAY* be restricted to authenticated or authorized users only., This specification does not define a specific mechanism for that as it is beyond it's scope.
+
+## Text Referencing API 2: Formal Specification
+
+In addition to the above API, Textsurf implements a **second Text
+Referencing API**. Though there are two separate interfaces, the functionality they
+expose is identical and it is a matter of preference which one you want to use.
+The secondary API is available under the `/api2/` endpoint. It was designed not
+to use query parameters, interoperate closer with linked open data, and is
+modelled after the [IIIF Image API](https://iiif.io/api/image/3.0/). 
+
+The capitalized key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+"SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and
+"OPTIONAL" in this section are to be interpreted as described in 
+[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+1. A request for a text file or text segment therein *MUST* be a `HTTP GET` request conforming to the following URI template: `{scheme}://{server}{/prefix}/{identifier}{/region}`
+    * `scheme` - Indicates the use of the HTTP or HTTPS protocol in calling the service.
+    * `server` - The host server on which the service resides. The parameters *MAY* also contain a port number.
+    * `prefix` - The path on the host server to the service. This prefix is *OPTIONAL* from the point of view of this specification, but it is *REQUIRED* to end in `/api2` for the TextSurf implementation. A prefix may be useful when the host server supports multiple services. The prefix may contain multiple path segments, delimited by slashes, but all other special characters must be encoded.
+    * `identifier` - The identifier of the requested text. This must be a filename and *MAY* contain path information, but special characters including slashes for directory hierarchy *MUST* be URI encoded. The text file *MUST* be retrievable by its full extension. It *MAY* also be retrievable by having an implied default extension. Example: `https://example.org/api2/test` for `https://example.org/api2/test.txt`
+    * `region` - This parameter is *OPTIONAL* and used when requesting a subpart of the text. Syntax is as follows:
+        * `full` - Returns the full text, same as just omitted the region parameter entirely
+        * `{begin},{end}` - Returns the text from character begin to end. 
+            * Characters correspond to unicode points and *MUST* be 0-indexed, the end *MUST* be non-inclusive.  Example: `0,1` returns the first character of a text. 
+            * Negative offsets *MUST* be supported and are interpreted relative to the end of the text. 
+            * If the end value is omitted, the offset is interpreted to be the end of the text. Example: `-1,` returns the last character of a text.
+        * `char:{begin},{end}` - Same as above
+        * `line:{begin},{end}` - Returns lines, lines *MUST* be 0-indexed and the end *MUST* be non-inclusive.
+2. A text file *MUST* be submittable via a `HTTP POST` call on the same URI as in point 1, but without the region part, and provided the server is not in a read-only state.
+    1. If the text file contains path components, the necessary directories *SHOULD* be automatically created.
+    2. The file is transferred in the request body.
+3. A text file *MUST* be removable via a `HTTP DELETE` call on its URI, provided the server is not in a read-only state.
+4. A request for text information *MUST* conform to the following URI template: `{scheme}://{server}{/prefix}/{identifier}/info.json`. This *SHOULD* return a *JSON* response with the following keys:
+    * `@context` - `https://w3id.org/textsurf/api2.jsonld`
+    * `id` - URI of the text file
+    * `type` - `TextService2`
+    * `protocol` - `https://w3id.org/textsurf/api2`
+    * `bytes` - The filesize of the file in bytes
+    * `chars` - The length of the text file in unicode points.
+    * `checksum` - A SHA-256 checksum of the entire textfile.
+    * `mtime` - The modification time of the file in number of seconds since the unix epoch (1970-01-01 00:00).
+5. Any of the endpoints *MAY* be restricted to authenticated or authorized users only., This specification does not define a specific mechanism for that as it is beyond it's scope.
 
 ## Installation
 
