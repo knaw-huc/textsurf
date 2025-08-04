@@ -127,6 +127,29 @@ impl TextPool {
         }
     }
 
+    pub fn stat_api2(&self, id: &str) -> Result<ApiResponse, ApiError> {
+        let _state = self.load(id)?;
+        if let Ok(texts) = self.texts.read() {
+            if let Some(textlock) = texts.get(id).cloned() {
+                drop(texts); //compiler should be able to infer this but better safe than sorry
+                if let Ok(textfile) = textlock.read() {
+                    Ok(ApiResponse::StatLD {
+                        chars: textfile.len() as u64,
+                        bytes: textfile.len_utf8() as u64,
+                        mtime: textfile.mtime(),
+                        checksum: textfile.checksum_digest(),
+                    })
+                } else {
+                    Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
+                }
+            } else {
+                unreachable!("text file should have been  loaded in first line")
+            }
+        } else {
+            Err(ApiError::InternalError("Lock poisoned: textfiles"))
+        }
+    }
+
     /// Create a new text
     pub fn new_text(&self, id: &str, text: String) -> Result<(), ApiError> {
         if self.readonly {

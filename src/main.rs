@@ -4,6 +4,7 @@ use axum::{
 };
 use clap::Parser;
 use smallvec::SmallVec;
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
@@ -89,8 +90,11 @@ struct Args {
         create_text,
         get_text,
         delete_text,
-        get_text_slice,
         stat_text,
+        get_api2_with_region,
+        get_api2_short,
+        create_text_api2,
+        delete_text_api2,
     ),
     tags(
         (name = "textsurf", description = "Webservice for efficiently serving multiple plain text documents or excerpts thereof (by unicode character offset), without loading everything into memory.")
@@ -136,7 +140,10 @@ async fn main() {
     let app = Router::new()
         .route("/", get(list_texts))
         .route("/stat/{*text_id}", get(stat_text))
-        .route("/s/{text_id}/{begin}/{end}", get(get_text_slice))
+        .route("/api2/{text_id}", get(get_api2_short))
+        .route("/api2/{text_id}/{region}", get(get_api2_with_region)) //also used for info.json for stat
+        .route("/api2/{text_id}", post(create_text_api2))
+        .route("/api2/{text_id}", post(delete_text_api2))
         .route("/{*text_id}", get(get_text))
         .route("/{*text_id}", post(create_text))
         .route("/{*text_id}", delete(delete_text))
@@ -265,6 +272,28 @@ async fn create_text(
 }
 
 #[utoipa::path(
+    post,
+    path = "/api2/{text_id}",
+    request_body( content_type = "text/plain", content = String),
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
+    ),
+    responses(
+        (status = 201, description = "Returned when successfully created"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
+    )
+)]
+/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8
+async fn create_text_api2(
+    Path(text_id): Path<String>,
+    textpool: State<Arc<TextPool>>,
+    text: String,
+) -> Result<ApiResponse, ApiError> {
+    textpool.new_text(&api2_decode_id(&text_id), text)?;
+    Ok(ApiResponse::Created())
+}
+
+#[utoipa::path(
     delete,
     path = "/{*text_id}",
     params(
@@ -282,6 +311,27 @@ async fn delete_text(
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
     textpool.delete_text(&text_id)?;
+    Ok(ApiResponse::NoContent())
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api2/{text_id}",
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
+    ),
+    responses(
+        (status = 204, description = "Returned when successfully deleted"),
+        (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the text does not exist", content_type = "application/json"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied if the service is configured as read-only", content_type = "application/json")
+    )
+)]
+/// Permanently delete a text
+async fn delete_text_api2(
+    Path(text_id): Path<String>,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    textpool.delete_text(&api2_decode_id(&text_id))?;
     Ok(ApiResponse::NoContent())
 }
 
@@ -436,11 +486,10 @@ async fn stat_text(
 
 #[utoipa::path(
     get,
-    path = "/s/{text_id}/{begin}/{end}",
+    path = "/api2/{text_id}/{region}",
     params(
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
-        ("begin" = isize, Path, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors."),
-        ("end" = isize, Path, description = "An integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end."),
+        ("region" = isize, Path, description = "A region specification in the form: `[{prefix:}]{begin},{end}`. Where begin is an integer indicating the begin offset in unicode points (0-indexed, this may be a negative integer for end-aligned cursors). End is integer indicating the non-inclusive end offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors and `0` for actual end. Prefix can be `char` or `line`, the former is the default if omitted entirely, in the latter case begin and end arguments will be interpreted to be lines rather than characters (0-indexed, non-inclusive end). Instead of a range, you can also use the keyword `full` to get the full text, which is identical to just omitted the region parameter entirely. Last, instead of a region you can also specify `info.json` to get metadata about a text."),
     ),
     responses(
         (status = 200, description = "The requested text excerpt",content(
@@ -450,17 +499,99 @@ async fn stat_text(
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
     )
 )]
-/// Returns a text slice given a singular text identifier and an offset
-async fn get_text_slice(
-    Path((text_id, begin, end)): Path<(String, isize, isize)>,
+/// Returns a text or a text slice according to Text Referencing API 2
+async fn get_api2_with_region(
+    Path((text_id, region)): Path<(String, String)>,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    if region == "info.json" {
+        textpool.stat_api2(&api2_decode_id(text_id.as_str()))
+    } else if let Some((prefix, remainder)) = region.split_once(':') {
+        let (begin, end) = get_text_slice_helper(remainder)?;
+        match prefix {
+            "char" => {
+                textpool.map(
+                    &api2_decode_id(text_id.as_str()),
+                    begin,
+                    end,
+                    |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+                )
+            }
+            "line" => {
+                textpool.map_lines(
+                    &api2_decode_id(text_id.as_str()),
+                    begin,
+                    end,
+                    |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+                )
+            }
+            _ => Err(ApiError::ParameterError(
+                "invalid prefix for region parameter, must be 'char' or 'line'",
+            )),
+        }
+    } else {
+        let (begin, end) = get_text_slice_helper(region.as_str())?;
+        textpool.map(
+            &api2_decode_id(text_id.as_str()),
+            begin,
+            end,
+            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+        )
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api2/{text_id}",
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk."),
+    ),
+    responses(
+        (status = 200, description = "The requested text excerpt",content(
+            (String = "text/plain"),
+        )),
+        (status = 406, body = apidocs::ApiError, description = "This is returned if the requested content-type (Accept) could not be delivered", content_type = "application/json"),
+        (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the store or resource does not exist", content_type = "application/json"),
+    )
+)]
+async fn get_api2_short(
+    Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
     textpool.map(
-        &text_id,
-        begin,
-        end,
+        &api2_decode_id(text_id.as_str()),
+        0,
+        0,
         |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
     )
+}
+
+/// Extra patch to allow pipes as a substitute for slashes in URLs
+fn api2_decode_id<'a>(s: &'a str) -> Cow<'a, str> {
+    if s.find('|').is_some() {
+        s.replace("|", "/").into()
+    } else {
+        s.into()
+    }
+}
+
+fn get_text_slice_helper(s: &str) -> Result<(isize, isize), ApiError> {
+    if s == "full" {
+        return Ok((0, 0));
+    }
+    if let Some((begin, end)) = s.split_once(',') {
+        let begin: isize = begin
+            .parse()
+            .map_err(|_| ApiError::ParameterError("region begin parameter must be an integer"))?;
+        let end: isize = end
+            .parse()
+            .map_err(|_| ApiError::ParameterError("region end parameter must be an integer"))?;
+        Ok((begin, end))
+    } else {
+        Err(ApiError::ParameterError(
+            "region parameter must have a comma to express a range",
+        ))
+    }
 }
 
 fn negotiate_content_type(

@@ -24,6 +24,12 @@ pub enum ApiResponse {
         mtime: u64,
         checksum: String,
     },
+    StatLD {
+        chars: u64,
+        bytes: u64,
+        mtime: u64,
+        checksum: String,
+    },
     JsonList(Vec<Value>),
 }
 
@@ -48,6 +54,22 @@ impl IntoResponse for ApiResponse {
                 checksum,
             } => {
                 let mut map: BTreeMap<&'static str, Value> = BTreeMap::new();
+                map.insert("chars", chars.into());
+                map.insert("bytes", bytes.into());
+                map.insert("mtime", mtime.into());
+                map.insert("checksum", checksum.into());
+                (StatusCode::OK, [cors, server], Json(map)).into_response()
+            }
+            Self::StatLD {
+                chars,
+                bytes,
+                mtime,
+                checksum,
+            } => {
+                let mut map: BTreeMap<&'static str, Value> = BTreeMap::new();
+                map.insert("@context", "https://w3id.org/textsurf/api2.jsonld".into());
+                map.insert("type", "TextService2".into());
+                map.insert("protocol", "https://w3id.org/textsurf/api2".into());
                 map.insert("chars", chars.into());
                 map.insert("bytes", bytes.into());
                 map.insert("mtime", mtime.into());
