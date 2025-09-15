@@ -11,6 +11,9 @@ GET http://127.0.0.1:8080/julesverne?char=1615,1826
 ### Retrieve a particular text slice (line-schema syntax like in RFC5147)
 GET http://127.0.0.1:8080/julesverne?line=500,510
 
+### Retrieve a particular text slice (API2)
+GET http://127.0.0.1:8080/api2/julesverne/1615,1826
+
 ### Receive the last 200 characters
 GET http://127.0.0.1:8080/julesverne?begin=-200
 
@@ -22,6 +25,9 @@ GET http://127.0.0.1:8080/doesnotexist
 
 ### Get metadata (size, last modification time)
 GET http://127.0.0.1:8080/stat/julesverne
+
+### Get metadata (API2)
+GET http://127.0.0.1:8080/api2/julesverne/info.json
 
 ### Add a new text (note that this adds a directory test to place it in)
 POST http://127.0.0.1:8080/test/hello
@@ -58,3 +64,4 @@ GET http://127.0.0.1:8080/test/hello?char=2,4&md5=c086b3008aca0efa8f2ded065d6afb
 
 ### Delete a text 
 DELETE http://127.0.0.1:8080/test/hello
+
