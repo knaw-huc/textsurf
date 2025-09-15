@@ -143,7 +143,7 @@ async fn main() {
         .route("/api2/{text_id}", get(get_api2_short))
         .route("/api2/{text_id}/{region}", get(get_api2_with_region)) //also used for info.json for stat
         .route("/api2/{text_id}", post(create_text_api2))
-        .route("/api2/{text_id}", post(delete_text_api2))
+        .route("/api2/{text_id}", delete(delete_text_api2))
         .route("/{*text_id}", get(get_text))
         .route("/{*text_id}", post(create_text))
         .route("/{*text_id}", delete(delete_text))
