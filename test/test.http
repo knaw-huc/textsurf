@@ -5,6 +5,9 @@ Accept: application/json
 ### Retrieve a particular text slice (first paragraph of chapter 1)
 GET http://127.0.0.1:8080/julesverne?begin=1615&end=1826
 
+### Retrieve a particular text slice (with extension) (first paragraph of chapter 1)
+GET http://127.0.0.1:8080/julesverne.txt?begin=1615&end=1826
+
 ### Retrieve a particular text slice (char-schema syntax like in RFC5147)
 GET http://127.0.0.1:8080/julesverne?char=1615,1826
 
@@ -46,6 +49,12 @@ GET http://127.0.0.1:8080/test/hello?char=2,4
 
 ### Retrieve the last two characters
 GET http://127.0.0.1:8080/test/hello?char=-2
+
+### Retrieve a particular text slice (API2)
+GET http://127.0.0.1:8080/api2/test|hello/2,4
+
+### Retrieve a particular text slice (API2, with extension)
+GET http://127.0.0.1:8080/api2/test|hello.txt/2,4
 
 ### Error when offset out of range 
 GET http://127.0.0.1:8080/test/hello?char=5,34
