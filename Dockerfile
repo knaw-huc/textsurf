@@ -20,7 +20,7 @@ WORKDIR /usr/src/
 RUN cargo install --root /usr/ --path . &&\
     mv etc/textsurf.run.sh /etc/service/textsurf/run
 
-EXPOSE 80
+EXPOSE 8080
 VOLUME /data
 
 ENTRYPOINT ["runsvdir","-P","/etc/service"]
