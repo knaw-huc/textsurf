@@ -1,4 +1,7 @@
-.PHONY: install testrun docker docker-run
+#also adapt version in Cargo.toml
+VERSION := 0.3.0
+
+.PHONY: install testrun docker docker-run docker-publish
 install:
 	cargo install --path .
 
@@ -20,4 +23,9 @@ docker:
 docker-run:
 	docker run --rm -v ./test/docroot:/data -p 8080:8080 proycon/textsurf
 
+docker-publish:
+	docker tag proycon/textsurf registry.diginfra.net/tt/textsurf:latest
+	docker tag proycon/textsurf registry.diginfra.net/tt/textsurf:$(VERSION)
+	docker push registry.diginfra.net/tt/textsurf:latest
+	docker push registry.diginfra.net/tt/textsurf:$(VERSION)
 
