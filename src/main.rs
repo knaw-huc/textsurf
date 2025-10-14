@@ -197,7 +197,7 @@ async fn shutdown_signal(textpool: Arc<TextPool>) {
     get,
     path = "/",
     responses(
-        (status = 200, body = [String], description = "Returns a simple list of all available texts"),
+        (status = 200, body = [String], description = "Returns a simple list of all available texts (recursively)"),
     )
 )]
 /// Returns all available texts, recursively
@@ -205,38 +205,33 @@ async fn list_texts(
     textpool: State<Arc<TextPool>>,
     request: Request<Body>,
 ) -> Result<ApiResponse, ApiError> {
-    let extension = format!(".{}", textpool.extension());
-    let mut store_ids: Vec<String> = Vec::new();
-    for entry in WalkDir::new(textpool.basedir())
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let filepath = entry
-            .path()
-            .strip_prefix(textpool.basedir())
-            .expect("prefix should be there");
-        if !textpool.extension().is_empty() {
-            if let Some(filepath_s) = filepath.to_str() {
-                if let Some(pos) = filepath_s.find(&extension) {
-                    store_ids.push(filepath_s[0..pos].to_string());
-                }
-            }
-        } else if filepath.is_file()
-            && filepath.extension().map(|x| x.as_encoded_bytes()) != Some(b"index")
-            && filepath
-                .to_str()
-                .map(|s| !s.starts_with("."))
-                .unwrap_or(false)
-        {
-            store_ids.push(
-                filepath
-                    .to_str()
-                    .expect("filename must be UTF-8")
-                    .to_string(),
-            );
+    let store_ids: Vec<String> =
+        file_index(textpool.basedir(), &format!(".{}", textpool.extension()));
+    match negotiate_content_type(request.headers(), &[CONTENT_TYPE_JSON]) {
+        Ok(CONTENT_TYPE_JSON) => {
+            let store_ids: Vec<serde_json::Value> =
+                store_ids.into_iter().map(|s| s.into()).collect();
+            Ok(ApiResponse::JsonList(store_ids))
+        }
+        _ => Err(ApiError::NotAcceptable(
+            "Accept header could not be satisfied (try application/json)",
+        )),
+    }
+}
+
+fn list_texts_subdir(
+    path: String,
+    textpool: State<Arc<TextPool>>,
+    request: Request<Body>,
+) -> Result<ApiResponse, ApiError> {
+    for component in path.split('/') {
+        if component.starts_with('.') {
+            return Err(ApiError::PermissionDenied("Invalid path"));
         }
     }
+
+    let store_ids: Vec<String> =
+        file_index(textpool.basedir(), &format!(".{}", textpool.extension()));
     match negotiate_content_type(request.headers(), &[CONTENT_TYPE_JSON]) {
         Ok(CONTENT_TYPE_JSON) => {
             let store_ids: Vec<serde_json::Value> =
@@ -367,11 +362,17 @@ struct TextParams {
     )
 )]
 /// Returns a text given a text identifier. Returns either a full text or a portion thereof if offsets were specified.
+/// If a path is specified (trailing slash), this returns an index of all files under that path instead (as JSON)
 async fn get_text(
     Path(text_id): Path<String>,
     Query(params): Query<TextParams>,
     textpool: State<Arc<TextPool>>,
+    request: Request<Body>,
 ) -> Result<ApiResponse, ApiError> {
+    if text_id.chars().last() == Some('/') {
+        //request for index rather than a text
+        return list_texts_subdir(text_id, textpool, request);
+    }
     let response =
         if let Some(char) = params.char {
             let fields: SmallVec<[&str; 2]> = char.split(",").collect();
@@ -573,6 +574,41 @@ fn api2_decode_id<'a>(s: &'a str) -> Cow<'a, str> {
     } else {
         s.into()
     }
+}
+
+fn file_index(dir: &std::path::Path, extension: &str) -> Vec<String> {
+    let mut store_ids: Vec<String> = Vec::new();
+    for entry in WalkDir::new(dir)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let filepath = entry
+            .path()
+            .strip_prefix(dir)
+            .expect("prefix should be there");
+        if !extension.is_empty() {
+            if let Some(filepath_s) = filepath.to_str() {
+                if let Some(pos) = filepath_s.find(&extension) {
+                    store_ids.push(filepath_s[0..pos].to_string());
+                }
+            }
+        } else if filepath.is_file()
+            && filepath.extension().map(|x| x.as_encoded_bytes()) != Some(b"index")
+            && filepath
+                .to_str()
+                .map(|s| !s.starts_with("."))
+                .unwrap_or(false)
+        {
+            store_ids.push(
+                filepath
+                    .to_str()
+                    .expect("filename must be UTF-8")
+                    .to_string(),
+            );
+        }
+    }
+    store_ids
 }
 
 fn get_text_slice_helper(s: &str) -> Result<(isize, isize), ApiError> {
