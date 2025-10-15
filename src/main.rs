@@ -228,7 +228,7 @@ fn list_texts_subdir(
 ) -> Result<ApiResponse, ApiError> {
     for component in path.split('/') {
         if component.starts_with('.') {
-            return Err(ApiError::PermissionDenied("Invalid path"));
+            return Err(ApiError::NotFound("Invalid path"));
         }
     }
 
