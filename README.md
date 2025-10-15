@@ -40,9 +40,10 @@ The following endpoints are defined and consistute the *Text Referencing API*, w
 * `GET /{text_id}`         - Returns a full text given its identifier.
 * `GET /{text_id}?char={begin},{end}` - Returns a text selection inside a resource. Offset are 0-indexed, unicode points, end is non inclusive. This implements part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
 * `GET /{text_id}?line={begin},{end}` - Returns a text selection inside a resource by line range. Offset are 0-indexed lines (so the first line is 0 and not 1!), end is non inclusive. This implements another part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
-* `GET /{path}/`            - Returns a simple JSON list of all available texts under this path (recursively). The trailing slash is key here.
+* `GET /{path}/`           - Returns a simple JSON list of all available texts under this path (recursively). The trailing slash is key here.
 * `DELETE /{text_id}`      - Delete a text
-* `POST /{text_id}`        - Add a new text
+* `POST /{text_id}`        - Add a new text. Returns 403 if it already exists.
+* `PUT /{text_id}`         - Add or update a text (overwrites if it already exists).
 * `GET /stat/{text_id}`    - Returns file size and modification date (JSON)
 
 In all these instances `text_id` may itself consist of any number of path

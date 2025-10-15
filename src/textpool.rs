@@ -151,12 +151,12 @@ impl TextPool {
     }
 
     /// Create a new text
-    pub fn new_text(&self, id: &str, text: String) -> Result<(), ApiError> {
+    pub fn new_text(&self, id: &str, text: String, overwrite: bool) -> Result<(), ApiError> {
         if self.readonly {
             return Err(ApiError::PermissionDenied("Service is readonly"));
         }
         let filename = self.filename_from_id(id)?; //this also does validation and security checks
-        if filename.exists() {
+        if filename.exists() && !overwrite {
             Err(ApiError::PermissionDenied("Text already exists"))
         } else {
             info!("Creating {}", id);

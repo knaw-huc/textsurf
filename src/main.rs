@@ -1,6 +1,6 @@
 use axum::{
     body::Body, extract::Path, extract::Query, extract::State, http::HeaderMap, http::HeaderValue,
-    http::Request, routing::delete, routing::get, routing::post, Router,
+    http::Request, routing::delete, routing::get, routing::post, routing::put, Router,
 };
 use clap::Parser;
 use smallvec::SmallVec;
@@ -143,9 +143,11 @@ async fn main() {
         .route("/api2/{text_id}", get(get_api2_short))
         .route("/api2/{text_id}/{region}", get(get_api2_with_region)) //also used for info.json for stat
         .route("/api2/{text_id}", post(create_text_api2))
+        .route("/api2/{text_id}", put(create_text_overwrite_api2))
         .route("/api2/{text_id}", delete(delete_text_api2))
         .route("/{*text_id}", get(get_text))
         .route("/{*text_id}", post(create_text))
+        .route("/{*text_id}", put(create_text_overwrite))
         .route("/{*text_id}", delete(delete_text))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
@@ -256,13 +258,35 @@ fn list_texts_subdir(
         (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
     )
 )]
-/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8
+/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, 403 will be returned
 async fn create_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.new_text(&text_id, text)?;
+    textpool.new_text(&text_id, text, false)?;
+    Ok(ApiResponse::Created())
+}
+
+#[utoipa::path(
+    put,
+    path = "/{*text_id}",
+    request_body( content_type = "text/plain", content = String),
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
+    ),
+    responses(
+        (status = 201, description = "Returned when successfully created"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
+    )
+)]
+/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, it will be overwritten.
+async fn create_text_overwrite(
+    Path(text_id): Path<String>,
+    textpool: State<Arc<TextPool>>,
+    text: String,
+) -> Result<ApiResponse, ApiError> {
+    textpool.new_text(&text_id, text, true)?;
     Ok(ApiResponse::Created())
 }
 
@@ -275,19 +299,40 @@ async fn create_text(
     ),
     responses(
         (status = 201, description = "Returned when successfully created"),
-        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only.", content_type = "application/json")
     )
 )]
-/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8
+/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, 403 will be returned
 async fn create_text_api2(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.new_text(&api2_decode_id(&text_id), text)?;
+    textpool.new_text(&api2_decode_id(&text_id), text, false)?;
     Ok(ApiResponse::Created())
 }
 
+#[utoipa::path(
+    put,
+    path = "/api2/{text_id}",
+    request_body( content_type = "text/plain", content = String),
+    params(
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
+    ),
+    responses(
+        (status = 201, description = "Returned when successfully created"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
+    )
+)]
+/// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, it will be overwritten.
+async fn create_text_overwrite_api2(
+    Path(text_id): Path<String>,
+    textpool: State<Arc<TextPool>>,
+    text: String,
+) -> Result<ApiResponse, ApiError> {
+    textpool.new_text(&api2_decode_id(&text_id), text, true)?;
+    Ok(ApiResponse::Created())
+}
 #[utoipa::path(
     delete,
     path = "/{*text_id}",
