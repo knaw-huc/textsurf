@@ -761,7 +761,7 @@ fn delete_subdir(dir: &str, textpool: State<Arc<TextPool>>) -> Result<ApiRespons
     {
         let filepath = entry
             .path()
-            .strip_prefix(dir.as_path())
+            .strip_prefix(textpool.basedir())
             .expect("prefix should be there");
         if !extension.is_empty() {
             if let Some(filepath_s) = filepath.to_str() {

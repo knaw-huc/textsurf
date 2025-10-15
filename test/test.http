@@ -71,6 +71,25 @@ GET http://127.0.0.1:8080/test/hello?char=2,4&md5=c086b3008aca0efa8f2ded065d6afb
 ### MD5 check (fail)
 GET http://127.0.0.1:8080/test/hello?char=2,4&md5=c086b3008aca0efa8f2ded065d6afb51
 
+
+### Update an existing text
+PUT http://127.0.0.1:8080/test/hello
+Content-Type: text/plain
+
+你好世界！Привет!
+
+### Update a text
+PUT http://127.0.0.1:8080/test/hello2
+Content-Type: text/plain
+
+Hello world
+
+### Get all text identifiers in a subdir
+GET http://127.0.0.1:8080/test/
+Accept: application/json
+
 ### Delete a text 
 DELETE http://127.0.0.1:8080/test/hello
 
+### Delete all texts in a subdir
+DELETE http://127.0.0.1:8080/test/
