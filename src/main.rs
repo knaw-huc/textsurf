@@ -89,6 +89,7 @@ struct Args {
         list_texts,
         create_text,
         get_text,
+        delete_all,
         delete_text,
         stat_text,
         get_api2_with_region,
@@ -139,6 +140,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(list_texts))
+        .route("/", delete(delete_all))
         .route("/stat/{*text_id}", get(stat_text))
         .route("/api2/{text_id}", get(get_api2_short))
         .route("/api2/{text_id}/{region}", get(get_api2_with_region)) //also used for info.json for stat
@@ -232,8 +234,10 @@ fn list_texts_subdir(
         }
     }
 
-    let store_ids: Vec<String> =
-        file_index(textpool.basedir(), &format!(".{}", textpool.extension()));
+    let store_ids: Vec<String> = file_index(
+        textpool.basedir().join(path.as_str()).as_path(),
+        &format!(".{}", textpool.extension()),
+    );
     match negotiate_content_type(request.headers(), &[CONTENT_TYPE_JSON]) {
         Ok(CONTENT_TYPE_JSON) => {
             let store_ids: Vec<serde_json::Value> =
@@ -244,6 +248,18 @@ fn list_texts_subdir(
             "Accept header could not be satisfied (try application/json)",
         )),
     }
+}
+
+#[utoipa::path(
+    delete,
+    path = "/",
+    responses(
+        (status = 204, description = "Returned when successfully deleted"),
+    )
+)]
+/// Deletes all texts, recursively
+async fn delete_all(textpool: State<Arc<TextPool>>) -> Result<ApiResponse, ApiError> {
+    delete_subdir("", textpool)
 }
 
 #[utoipa::path(
@@ -344,11 +360,12 @@ async fn create_text_overwrite_api2(
         Ok(ApiResponse::Ok())
     }
 }
+
 #[utoipa::path(
     delete,
     path = "/{*text_id}",
     params(
-        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
+        ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components. Important note: If this ends with a trailing slash, the identifier is interpreted as a path and all texts in that path are removed (recursively)!"),
     ),
     responses(
         (status = 204, description = "Returned when successfully deleted"),
@@ -361,8 +378,13 @@ async fn delete_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.delete_text(&text_id)?;
-    Ok(ApiResponse::NoContent())
+    if text_id.chars().last() == Some('/') {
+        //deletion of an entire subdir rather than a single text
+        delete_subdir(text_id.as_str(), textpool)
+    } else {
+        textpool.delete_text(&text_id)?;
+        Ok(ApiResponse::NoContent())
+    }
 }
 
 #[utoipa::path(
@@ -720,4 +742,43 @@ fn negotiate_content_type(
     } else {
         Ok(offer_types[0])
     }
+}
+
+fn delete_subdir(dir: &str, textpool: State<Arc<TextPool>>) -> Result<ApiResponse, ApiError> {
+    for component in dir.split('/') {
+        if component.starts_with('.') {
+            return Err(ApiError::NotFound("Invalid path"));
+        }
+    }
+
+    let dir: std::path::PathBuf = textpool.basedir().join(dir.trim_matches('/'));
+    let extension = format!(".{}", textpool.extension());
+
+    for entry in WalkDir::new(dir.as_path())
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let filepath = entry
+            .path()
+            .strip_prefix(dir.as_path())
+            .expect("prefix should be there");
+        if !extension.is_empty() {
+            if let Some(filepath_s) = filepath.to_str() {
+                if filepath_s.find(&extension).is_some() {
+                    textpool.delete_text(filepath_s)?;
+                }
+            }
+        } else if filepath.is_file()
+            && filepath.extension().map(|x| x.as_encoded_bytes()) != Some(b"index")
+            && filepath
+                .to_str()
+                .map(|s| !s.starts_with("."))
+                .unwrap_or(false)
+        {
+            textpool.delete_text(filepath.to_str().expect("filename must be utf-8"))?;
+        }
+    }
+    //TODO: clean up remaining empty directories
+    Ok(ApiResponse::NoContent())
 }
