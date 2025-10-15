@@ -15,6 +15,7 @@ pub const SERVER: &'static str = concatcp!("textsurf/", VERSION);
 
 #[derive(Debug)]
 pub enum ApiResponse {
+    Ok(),
     Created(),
     NoContent(),
     Text(String), //TODO: Rework to work with a stream over a borrowed &str rather than needing this copy
@@ -41,6 +42,7 @@ impl IntoResponse for ApiResponse {
         );
         let server = (header::SERVER, HeaderValue::from_str(SERVER).unwrap());
         match self {
+            Self::Ok() => (StatusCode::OK, [cors, server], "ok").into_response(),
             Self::Created() => (StatusCode::CREATED, [cors, server], "created").into_response(),
             Self::NoContent() => {
                 (StatusCode::NO_CONTENT, [cors, server], "deleted").into_response()

@@ -264,8 +264,11 @@ async fn create_text(
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.new_text(&text_id, text, false)?;
-    Ok(ApiResponse::Created())
+    if textpool.new_text(&text_id, text, false)? {
+        Ok(ApiResponse::Created())
+    } else {
+        unreachable!("new_text without overwrite always returns true (or error)")
+    }
 }
 
 #[utoipa::path(
@@ -276,7 +279,8 @@ async fn create_text(
         ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
     ),
     responses(
-        (status = 201, description = "Returned when successfully created"),
+        (status = 200, description = "Returned when successfully updated"),
+        (status = 201, description = "Returned when successfully newly created"),
         (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
     )
 )]
@@ -286,8 +290,11 @@ async fn create_text_overwrite(
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.new_text(&text_id, text, true)?;
-    Ok(ApiResponse::Created())
+    if textpool.new_text(&text_id, text, true)? {
+        Ok(ApiResponse::Created())
+    } else {
+        Ok(ApiResponse::Ok())
+    }
 }
 
 #[utoipa::path(
@@ -320,7 +327,8 @@ async fn create_text_api2(
         ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
     ),
     responses(
-        (status = 201, description = "Returned when successfully created"),
+        (status = 200, description = "Returned when successfully updated"),
+        (status = 201, description = "Returned when successfully newly created"),
         (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
     )
 )]
@@ -330,8 +338,11 @@ async fn create_text_overwrite_api2(
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.new_text(&api2_decode_id(&text_id), text, true)?;
-    Ok(ApiResponse::Created())
+    if textpool.new_text(&api2_decode_id(&text_id), text, true)? {
+        Ok(ApiResponse::Created())
+    } else {
+        Ok(ApiResponse::Ok())
+    }
 }
 #[utoipa::path(
     delete,
