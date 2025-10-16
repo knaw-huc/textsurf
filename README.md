@@ -42,6 +42,8 @@ The following endpoints are defined and consistute the *Text Referencing API*, w
 * `GET /{text_id}?line={begin},{end}` - Returns a text selection inside a resource by line range. Offset are 0-indexed lines (so the first line is 0 and not 1!), end is non inclusive. This implements another part of [RFC5147](https://www.rfc-editor.org/rfc/rfc5147.txt) server-side.
 * `GET /{path}/`           - Returns a simple JSON list of all available texts under this path (recursively). The trailing slash is key here.
 * `DELETE /{text_id}`      - Delete a text
+* `DELETE /{path}/`        - Delete all texts under this path (note the trailing slash, it is key here)
+* `DELETE /`               - Delete all texts
 * `POST /{text_id}`        - Add a new text. Returns 403 if it already exists.
 * `PUT /{text_id}`         - Add or update a text (overwrites if it already exists).
 * `GET /stat/{text_id}`    - Returns file size and modification date (JSON)
