@@ -158,7 +158,7 @@ async fn main() {
     //allow trailing slashes as well: (conflicts with swagger-ui!)
     //let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
-    eprintln!("[textrepo] listening on {}", args.bind);
+    eprintln!("[textsurf] listening on {}", args.bind);
     let listener = tokio::net::TcpListener::bind(args.bind).await.unwrap();
     axum::serve(
         listener, app,
