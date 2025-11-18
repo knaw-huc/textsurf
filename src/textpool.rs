@@ -365,7 +365,7 @@ impl TextPool {
         }
 
         for id in remove_ids.iter() {
-            self.unload(&id)?;
+            self.unload(id)?;
         }
 
         Ok(remove_ids)
@@ -406,6 +406,31 @@ impl TextPool {
             Ok(())
         } else {
             Err(ApiError::NotFound("No such text"))
+        }
+    }
+
+    pub fn absolute_pos(
+        &self,
+        id: &str,
+        begin: isize,
+        end: isize,
+    ) -> Result<(usize, usize), ApiError> {
+        let _state = self.load(id)?;
+        if let Ok(texts) = self.texts.read() {
+            if let Some(textlock) = texts.get(id).cloned() {
+                drop(texts); //compiler should be able to infer this but better safe than sorry
+                if let Ok(textfile) = textlock.read() {
+                    textfile
+                        .absolute_pos(begin, end)
+                        .map_err(ApiError::TextError)
+                } else {
+                    Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
+                }
+            } else {
+                unreachable!("text file should have been  loaded in first line")
+            }
+        } else {
+            Err(ApiError::InternalError("Lock poisoned: textfiles"))
         }
     }
 }

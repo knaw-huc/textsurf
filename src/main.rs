@@ -3,10 +3,11 @@ use axum::{
     http::Request, routing::delete, routing::get, routing::post, routing::put, Router,
 };
 use clap::Parser;
+use futures::StreamExt as _;
 use smallvec::SmallVec;
-use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{borrow::Cow, convert::Infallible};
 use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
@@ -25,6 +26,7 @@ use walkdir::WalkDir;
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 const CONTENT_TYPE_JSON: &'static str = "application/json";
+const CHUNK_SIZE: u64 = 1 << 16;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -408,6 +410,61 @@ async fn delete_text_api2(
     Ok(ApiResponse::NoContent())
 }
 
+fn get_text_chars(
+    textpool: Arc<TextPool>,
+    text_id: String,
+    begin: isize,
+    end: isize,
+    stream: bool,
+) -> Result<ApiResponse, ApiError> {
+    if !stream {
+        return textpool.map(&text_id, begin, end, |text| {
+            Ok(ApiResponse::Text(text.to_string()))
+        });
+    }
+
+    // build a stream for chunked HTTP response
+
+    // get absolute start and end character positions
+    let (begin, end) = textpool.absolute_pos(&text_id, begin, end)?;
+
+    // this check doesn't happen in TextFrame::absolute_pos
+    if end < begin {
+        return Err(ApiError::ParameterError(
+            "The range you requested has a negative length",
+        ));
+    }
+
+    let char_count = (end - begin) as u64;
+
+    let nb_chunks = char_count.div_ceil(CHUNK_SIZE);
+
+    let textpool = Arc::clone(&textpool);
+    let text_id = text_id.clone();
+
+    let textstream = futures::stream::iter(0..nb_chunks).then(move |chunk| {
+        let textpool = Arc::clone(&textpool);
+        let text_id = text_id.clone();
+        async move {
+            // put textpool operation in a tokio blocking task
+            // in order to not block this tokio executor on slow IO operations
+            let chunk_data = tokio::task::block_in_place(|| {
+                let begin = (chunk * CHUNK_SIZE) as isize;
+                let end = ((chunk + 1) * CHUNK_SIZE).min(char_count) as isize;
+
+                textpool
+                    .map(&text_id, begin, end, |text| Ok(text.to_string()))
+                    .unwrap()
+            });
+            Ok::<_, Infallible>(chunk_data)
+        }
+    });
+
+    let body = Body::from_stream(textstream);
+
+    Ok(ApiResponse::TextStream(body))
+}
+
 #[derive(Deserialize)]
 struct TextParams {
     begin: Option<isize>,
@@ -416,6 +473,7 @@ struct TextParams {
     line: Option<String>,
     length: Option<usize>,
     md5: Option<String>,
+    stream: Option<bool>,
 }
 
 #[utoipa::path(
@@ -429,6 +487,7 @@ struct TextParams {
         ("line" = Option<isize>, Query, description = "Line range specification conforming to RFC5147, begin and end values are separated by a comma, 0-indexed (first line is 0!), end is non-inclusive"),
         ("length" = Option<usize>, Query, description = "Optional length validity check (as in RFC5147, an encoding parameter is NOT supported though as textsurf only does UTF-8 anyway). This is not an alternative for `end`. If the check fails, a 403 will be returned."),
         ("md5" = Option<String>, Query, description = "MD5 checksum for the text that is being referenced (as defined by RFC5147). If the check fails, a 403 will be returned"),
+        ("stream"= Option<bool>, Query, description = "Whether or not to return the text using chunked HTTP transfer encoding. False by default")
     ),
     responses(
         (status = 200, description = "The text",content(
@@ -444,18 +503,18 @@ struct TextParams {
 async fn get_text(
     Path(text_id): Path<String>,
     Query(params): Query<TextParams>,
-    textpool: State<Arc<TextPool>>,
+    State(textpool): State<Arc<TextPool>>,
     request: Request<Body>,
 ) -> Result<ApiResponse, ApiError> {
-    if text_id.chars().last() == Some('/') {
+    if text_id.ends_with('/') {
         //request for index rather than a text
-        return list_texts_subdir(text_id, textpool, request);
+        return list_texts_subdir(text_id, State(textpool), request);
     }
     let response =
         if let Some(char) = params.char {
             let fields: SmallVec<[&str; 2]> = char.split(",").collect();
-            let begin: isize = if fields.len() >= 1 && fields.get(0) != Some(&"") {
-                fields.get(0).unwrap().parse().map_err(|_| {
+            let begin: isize = if !fields.is_empty() && fields.first() != Some(&"") {
+                fields.first().unwrap().parse().map_err(|_| {
                     ApiError::ParameterError("char begin parameter must be an integer")
                 })?
             } else {
@@ -468,24 +527,25 @@ async fn get_text(
             } else {
                 0
             };
-            textpool.map(
-                &text_id,
+            get_text_chars(
+                textpool,
+                text_id,
                 begin,
                 end,
-                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+                params.stream.is_some_and(|s| s),
             )
         } else if let Some(line) = params.line {
             let fields: SmallVec<[&str; 2]> = line.split(",").collect();
-            let begin: isize = if fields.len() >= 1 && fields.get(0) != Some(&"") {
-                fields.get(0).unwrap().parse().map_err(|_| {
-                    ApiError::ParameterError("char begin parameter must be an integer")
+            let begin: isize = if !fields.is_empty() && fields.first() != Some(&"") {
+                fields.first().unwrap().parse().map_err(|_| {
+                    ApiError::ParameterError("line begin parameter must be an integer")
                 })?
             } else {
                 0
             };
             let end: isize = if fields.len() == 2 && fields.get(1) != Some(&"") {
                 fields.get(1).unwrap().parse().map_err(|_| {
-                    ApiError::ParameterError("char end parameter must be an integer")
+                    ApiError::ParameterError("line end parameter must be an integer")
                 })?
             } else {
                 0
@@ -494,38 +554,30 @@ async fn get_text(
                 &text_id,
                 begin,
                 end,
-                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+                |text| Ok(ApiResponse::Text(text.to_string())), // TODO: work away the String clone
             )
         } else if let (Some(begin), Some(end)) = (params.begin, params.end) {
-            textpool.map(
-                &text_id,
+            get_text_chars(
+                textpool,
+                text_id,
                 begin,
                 end,
-                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+                params.stream.is_some_and(|s| s),
             )
         } else if let Some(begin) = params.begin {
-            textpool.map(
-                &text_id,
+            get_text_chars(
+                textpool,
+                text_id,
                 begin,
                 0,
-                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
+                params.stream.is_some_and(|s| s),
             )
         } else if let Some(end) = params.end {
-            textpool.map(
-                &text_id,
-                0,
-                end,
-                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-            )
+            get_text_chars(textpool, text_id, 0, end, params.stream.is_some_and(|s| s))
         } else {
-            //whole text
-            textpool.map(
-                &text_id,
-                0,
-                0,
-                |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-            )
+            get_text_chars(textpool, text_id, 0, 0, params.stream.is_some_and(|s| s))
         };
+
     if let Ok(ApiResponse::Text(text)) = &response {
         if let Some(length) = params.length {
             if text.chars().count() != length {

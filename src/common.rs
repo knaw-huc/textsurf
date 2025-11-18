@@ -1,6 +1,6 @@
 use axum::{
-    http::HeaderValue,
-    http::{header, StatusCode},
+    body::Body,
+    http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use const_format::concatcp;
@@ -19,6 +19,7 @@ pub enum ApiResponse {
     Created(),
     NoContent(),
     Text(String), //TODO: Rework to work with a stream over a borrowed &str rather than needing this copy
+    TextStream(Body),
     Stat {
         chars: u64,
         bytes: u64,
@@ -48,6 +49,7 @@ impl IntoResponse for ApiResponse {
                 (StatusCode::NO_CONTENT, [cors, server], "deleted").into_response()
             }
             Self::Text(s) => (StatusCode::OK, [cors, server], s).into_response(),
+            Self::TextStream(stream) => (StatusCode::OK, [cors, server], stream).into_response(),
             Self::JsonList(data) => (StatusCode::OK, [cors, server], Json(data)).into_response(),
             Self::Stat {
                 chars,
