@@ -640,14 +640,7 @@ async fn get_api2_with_region(
     } else if let Some((prefix, remainder)) = region.split_once(':') {
         let (begin, end) = get_text_slice_helper(remainder)?;
         match prefix {
-            "char" => {
-                textpool.map(
-                    &api2_decode_id(text_id.as_str()),
-                    begin,
-                    end,
-                    |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-                )
-            }
+            "char" => get_text_chars(textpool, text_id, begin, end, true),
             "line" => {
                 textpool.map_lines(
                     &api2_decode_id(text_id.as_str()),
@@ -662,12 +655,8 @@ async fn get_api2_with_region(
         }
     } else {
         let (begin, end) = get_text_slice_helper(region.as_str())?;
-        textpool.map(
-            &api2_decode_id(text_id.as_str()),
-            begin,
-            end,
-            |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-        )
+
+        get_text_chars(textpool, text_id, begin, end, true)
     }
 }
 
@@ -689,12 +678,7 @@ async fn get_api2_short(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    textpool.map(
-        &api2_decode_id(text_id.as_str()),
-        0,
-        0,
-        |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-    )
+    get_text_chars(textpool, text_id, 0, 0, true)
 }
 
 /// Extra patch to allow pipes as a substitute for slashes in URLs
