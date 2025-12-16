@@ -25,7 +25,9 @@ use walkdir::WalkDir;
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 const CONTENT_TYPE_JSON: &'static str = "application/json";
-const CHUNK_SIZE: u64 = 1 << 16;
+// 16KB
+const CHUNK_SIZE: usize = 1 << 14;
+const STREAM_THRESHOLD: usize = CHUNK_SIZE;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -418,9 +420,15 @@ fn get_text_chars(
     textpool: Arc<TextPool>,
     text_id: &str,
     range: Range,
-    stream: bool,
 ) -> Result<ApiResponse, ApiError> {
-    if !stream {
+    // get absolute start and end character positions
+    let (begin, end) = match range {
+        Range::Chars(begin, end) => textpool.absolute_pos(text_id, begin, end),
+        Range::Lines(begin, end) => textpool.absolute_line_pos(text_id, begin, end),
+    }?;
+
+    // asked range is smaller than threshold, just send as non-streamed response
+    if (end - begin) < STREAM_THRESHOLD {
         return match range {
             Range::Chars(begin, end) => textpool.map(text_id, begin, end, |text| {
                 Ok(ApiResponse::Text(text.to_string()))
@@ -431,14 +439,6 @@ fn get_text_chars(
         };
     }
 
-    // build a stream for chunked HTTP response
-
-    // get absolute start and end character positions
-    let (begin, end) = match range {
-        Range::Chars(begin, end) => textpool.absolute_pos(text_id, begin, end),
-        Range::Lines(begin, end) => textpool.absolute_line_pos(text_id, begin, end),
-    }?;
-
     // this check doesn't happen in TextFrame::absolute_pos
     if end < begin {
         return Err(ApiError::ParameterError(
@@ -448,7 +448,7 @@ fn get_text_chars(
 
     let char_count = (end - begin) as u64;
 
-    let nb_chunks = char_count.div_ceil(CHUNK_SIZE);
+    let nb_chunks = char_count.div_ceil(CHUNK_SIZE as u64);
 
     let textpool = Arc::clone(&textpool);
     let text_id = text_id.to_string();
@@ -460,8 +460,8 @@ fn get_text_chars(
             // put textpool operation in a tokio blocking task
             // in order to not block this tokio executor on slow IO operations
             let chunk_data = tokio::task::block_in_place(|| {
-                let begin = (chunk * CHUNK_SIZE) as isize;
-                let end = ((chunk + 1) * CHUNK_SIZE).min(char_count) as isize;
+                let begin = (chunk * CHUNK_SIZE as u64) as isize;
+                let end = ((chunk + 1) * CHUNK_SIZE as u64).min(char_count) as isize;
 
                 textpool
                     .map(&text_id, begin, end, |text| Ok(text.to_string()))
@@ -520,7 +520,6 @@ struct TextParams {
         ("line" = Option<isize>, Query, description = "Line range specification conforming to RFC5147, begin and end values are separated by a comma, 0-indexed (first line is 0!), end is non-inclusive"),
         ("length" = Option<usize>, Query, description = "Optional length validity check (as in RFC5147, an encoding parameter is NOT supported though as textsurf only does UTF-8 anyway). This is not an alternative for `end`. If the check fails, a 403 will be returned."),
         ("md5" = Option<String>, Query, description = "MD5 checksum for the text that is being referenced (as defined by RFC5147). If the check fails, a 403 will be returned"),
-        ("stream"= Option<bool>, Query, description = "Whether or not to return the text using chunked HTTP transfer encoding. False by default")
     ),
     responses(
         (status = 200, description = "The text",content(
@@ -544,8 +543,6 @@ async fn get_text(
         return list_texts_subdir(text_id, State(textpool), request);
     }
 
-    let stream = params.stream.is_some_and(|s| s);
-
     let range = if let Some(char) = params.char {
         let (begin, end) = parse_range(&char)?;
         Range::Chars(begin, end)
@@ -559,7 +556,7 @@ async fn get_text(
         Range::Chars(begin, end)
     };
 
-    let response = get_text_chars(textpool, &text_id, range, stream);
+    let response = get_text_chars(textpool, &text_id, range);
 
     if let Ok(ApiResponse::Text(text)) = &response {
         if let Some(length) = params.length {
@@ -625,8 +622,8 @@ async fn get_api2_with_region(
     } else if let Some((prefix, remainder)) = region.split_once(':') {
         let (begin, end) = get_text_slice_helper(remainder)?;
         match prefix {
-            "char" => get_text_chars(textpool, &text_id, Range::Chars(begin, end), true),
-            "line" => get_text_chars(textpool, &text_id, Range::Lines(begin, end), true),
+            "char" => get_text_chars(textpool, &text_id, Range::Chars(begin, end)),
+            "line" => get_text_chars(textpool, &text_id, Range::Lines(begin, end)),
             _ => Err(ApiError::ParameterError(
                 "invalid prefix for region parameter, must be 'char' or 'line'",
             )),
@@ -634,7 +631,7 @@ async fn get_api2_with_region(
     } else {
         let (begin, end) = get_text_slice_helper(region.as_str())?;
 
-        get_text_chars(textpool, &text_id, Range::Chars(begin, end), true)
+        get_text_chars(textpool, &text_id, Range::Chars(begin, end))
     }
 }
 
@@ -656,7 +653,7 @@ async fn get_api2_short(
     Path(text_id): Path<String>,
     State(textpool): State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    get_text_chars(textpool, &text_id, Range::Chars(0, 0), true)
+    get_text_chars(textpool, &text_id, Range::Chars(0, 0))
 }
 
 /// Extra patch to allow pipes as a substitute for slashes in URLs
