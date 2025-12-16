@@ -22,9 +22,9 @@ use common::{ApiError, ApiResponse};
 use textpool::TextPool;
 use walkdir::WalkDir;
 
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
-const CONTENT_TYPE_JSON: &'static str = "application/json";
+const CONTENT_TYPE_JSON: &str = "application/json";
 // 16KB
 const CHUNK_SIZE: usize = 1 << 14;
 const STREAM_THRESHOLD: usize = CHUNK_SIZE;
@@ -381,7 +381,7 @@ async fn delete_text(
     Path(text_id): Path<String>,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    if text_id.chars().last() == Some('/') {
+    if text_id.ends_with('/') {
         //deletion of an entire subdir rather than a single text
         delete_subdir(text_id.as_str(), textpool)
     } else {
@@ -506,7 +506,6 @@ struct TextParams {
     line: Option<String>,
     length: Option<usize>,
     md5: Option<String>,
-    stream: Option<bool>,
 }
 
 #[utoipa::path(
@@ -735,13 +734,13 @@ fn negotiate_content_type(
         {
             let accept_type = accept_type.split(";").next().unwrap();
             for offer_type in offer_types.iter() {
-                if *offer_type == accept_type || accept_type == "*/*" {
-                    if match_accept_index.is_none()
-                        || (match_accept_index.is_some() && match_accept_index.unwrap() > i)
-                    {
-                        match_accept_index = Some(i);
-                        matching_offer = Some(*offer_type);
-                    }
+                if *offer_type == accept_type
+                    || accept_type == "*/*"
+                        && (match_accept_index.is_none()
+                            || (match_accept_index.is_some() && match_accept_index.unwrap() > i))
+                {
+                    match_accept_index = Some(i);
+                    matching_offer = Some(*offer_type);
                 }
             }
         }
@@ -776,7 +775,7 @@ fn delete_subdir(dir: &str, textpool: State<Arc<TextPool>>) -> Result<ApiRespons
             .expect("prefix should be there");
         if !extension.is_empty() {
             if let Some(filepath_s) = filepath.to_str() {
-                if filepath_s.find(&extension).is_some() {
+                if filepath_s.contains(&extension) {
                     textpool.delete_text(filepath_s)?;
                 }
             }

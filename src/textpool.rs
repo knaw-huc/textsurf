@@ -69,7 +69,7 @@ impl TextPool {
                 if let Ok(mut textfile) = textlock.write() {
                     //we need a write lock because we may load a new part of the text from disk here
                     let text = textfile.get_or_load(begin, end)?; //this triggers a load from disk of a part of the text unless it's already covered by a part that was loaded earlier
-                    f(&text)
+                    f(text)
                 } else {
                     Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
                 }
@@ -92,7 +92,7 @@ impl TextPool {
                 if let Ok(mut textfile) = textlock.write() {
                     //we need a write lock because we may load a new part of the text from disk here
                     let text = textfile.get_or_load_lines(begin, end)?; //this triggers a load from disk of a part of the text unless it's already covered by a part that was loaded earlier
-                    f(&text)
+                    f(text)
                 } else {
                     Err(ApiError::InternalError("Textfiles lock got poisoned")) //only happens if a thread holding a write lock panics
                 }
@@ -165,7 +165,7 @@ impl TextPool {
                 std::fs::create_dir_all(parentdir)?;
             }
             let mut file = File::create(filename)?;
-            file.write(text.as_bytes())?;
+            let _ = file.write(text.as_bytes())?;
             Ok(!exists)
         }
     }
@@ -261,10 +261,10 @@ impl TextPool {
                 state.loading = false;
                 Ok(state.clone())
             } else {
-                return Err(ApiError::InternalError("State must exist"));
+                Err(ApiError::InternalError("State must exist"))
             }
         } else {
-            return Err(ApiError::InternalError("Lock poisoned"));
+            Err(ApiError::InternalError("Lock poisoned"))
         }
     }
 
@@ -274,7 +274,7 @@ impl TextPool {
         let basename: PathBuf = self.check_basename(id)?;
         let mut filename = self.basedir.clone().join(basename.clone());
         if !self.extension.is_empty() {
-            if filename.extension() == None {
+            if filename.extension().is_none() {
                 filename = filename.with_extension(&self.extension);
             } else if filename.extension().unwrap() != self.extension.as_str() {
                 //add extension
@@ -293,7 +293,7 @@ impl TextPool {
             .unwrap_or(false)
         {
             //hidden files are never served
-            return Err(ApiError::NotFound("No such file"));
+            Err(ApiError::NotFound("No such file"))
         } else {
             Ok(filename)
         }

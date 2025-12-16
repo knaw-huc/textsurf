@@ -8,10 +8,9 @@ use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::value::Value;
 use std::collections::BTreeMap;
-use textframe;
 
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-pub const SERVER: &'static str = concatcp!("textsurf/", VERSION);
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const SERVER: &str = concatcp!("textsurf/", VERSION);
 
 #[derive(Debug)]
 pub enum ApiResponse {
