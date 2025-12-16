@@ -4,7 +4,6 @@ use axum::{
 };
 use clap::Parser;
 use futures::StreamExt as _;
-use smallvec::SmallVec;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{borrow::Cow, convert::Infallible};
@@ -410,23 +409,35 @@ async fn delete_text_api2(
     Ok(ApiResponse::NoContent())
 }
 
+enum Range {
+    Chars(isize, isize),
+    Lines(isize, isize),
+}
+
 fn get_text_chars(
     textpool: Arc<TextPool>,
-    text_id: String,
-    begin: isize,
-    end: isize,
+    text_id: &str,
+    range: Range,
     stream: bool,
 ) -> Result<ApiResponse, ApiError> {
     if !stream {
-        return textpool.map(&text_id, begin, end, |text| {
-            Ok(ApiResponse::Text(text.to_string()))
-        });
+        return match range {
+            Range::Chars(begin, end) => textpool.map(text_id, begin, end, |text| {
+                Ok(ApiResponse::Text(text.to_string()))
+            }),
+            Range::Lines(begin, end) => textpool.map_lines(text_id, begin, end, |text| {
+                Ok(ApiResponse::Text(text.to_string()))
+            }),
+        };
     }
 
     // build a stream for chunked HTTP response
 
     // get absolute start and end character positions
-    let (begin, end) = textpool.absolute_pos(&text_id, begin, end)?;
+    let (begin, end) = match range {
+        Range::Chars(begin, end) => textpool.absolute_pos(text_id, begin, end),
+        Range::Lines(begin, end) => textpool.absolute_line_pos(text_id, begin, end),
+    }?;
 
     // this check doesn't happen in TextFrame::absolute_pos
     if end < begin {
@@ -440,7 +451,7 @@ fn get_text_chars(
     let nb_chunks = char_count.div_ceil(CHUNK_SIZE);
 
     let textpool = Arc::clone(&textpool);
-    let text_id = text_id.clone();
+    let text_id = text_id.to_string();
 
     let textstream = futures::stream::iter(0..nb_chunks).then(move |chunk| {
         let textpool = Arc::clone(&textpool);
@@ -463,6 +474,28 @@ fn get_text_chars(
     let body = Body::from_stream(textstream);
 
     Ok(ApiResponse::TextStream(body))
+}
+
+fn parse_range(input: &str) -> Result<(isize, isize), ApiError> {
+    let mut fields = input.splitn(2, ',');
+
+    let begin = fields.next().unwrap_or("");
+    let end = fields.next().unwrap_or("");
+
+    let parse = |field: &str| {
+        if field.is_empty() {
+            Ok(0)
+        } else {
+            field
+                .parse()
+                .map_err(|_| ApiError::ParameterError("range parameter must be an integer"))
+        }
+    };
+
+    let begin = parse(begin)?;
+    let end = parse(end)?;
+
+    Ok((begin, end))
 }
 
 #[derive(Deserialize)]
@@ -510,73 +543,23 @@ async fn get_text(
         //request for index rather than a text
         return list_texts_subdir(text_id, State(textpool), request);
     }
-    let response =
-        if let Some(char) = params.char {
-            let fields: SmallVec<[&str; 2]> = char.split(",").collect();
-            let begin: isize = if !fields.is_empty() && fields.first() != Some(&"") {
-                fields.first().unwrap().parse().map_err(|_| {
-                    ApiError::ParameterError("char begin parameter must be an integer")
-                })?
-            } else {
-                0
-            };
-            let end: isize = if fields.len() == 2 && fields.get(1) != Some(&"") {
-                fields.get(1).unwrap().parse().map_err(|_| {
-                    ApiError::ParameterError("char end parameter must be an integer")
-                })?
-            } else {
-                0
-            };
-            get_text_chars(
-                textpool,
-                text_id,
-                begin,
-                end,
-                params.stream.is_some_and(|s| s),
-            )
-        } else if let Some(line) = params.line {
-            let fields: SmallVec<[&str; 2]> = line.split(",").collect();
-            let begin: isize = if !fields.is_empty() && fields.first() != Some(&"") {
-                fields.first().unwrap().parse().map_err(|_| {
-                    ApiError::ParameterError("line begin parameter must be an integer")
-                })?
-            } else {
-                0
-            };
-            let end: isize = if fields.len() == 2 && fields.get(1) != Some(&"") {
-                fields.get(1).unwrap().parse().map_err(|_| {
-                    ApiError::ParameterError("line end parameter must be an integer")
-                })?
-            } else {
-                0
-            };
-            textpool.map_lines(
-                &text_id,
-                begin,
-                end,
-                |text| Ok(ApiResponse::Text(text.to_string())), // TODO: work away the String clone
-            )
-        } else if let (Some(begin), Some(end)) = (params.begin, params.end) {
-            get_text_chars(
-                textpool,
-                text_id,
-                begin,
-                end,
-                params.stream.is_some_and(|s| s),
-            )
-        } else if let Some(begin) = params.begin {
-            get_text_chars(
-                textpool,
-                text_id,
-                begin,
-                0,
-                params.stream.is_some_and(|s| s),
-            )
-        } else if let Some(end) = params.end {
-            get_text_chars(textpool, text_id, 0, end, params.stream.is_some_and(|s| s))
-        } else {
-            get_text_chars(textpool, text_id, 0, 0, params.stream.is_some_and(|s| s))
-        };
+
+    let stream = params.stream.is_some_and(|s| s);
+
+    let range = if let Some(char) = params.char {
+        let (begin, end) = parse_range(&char)?;
+        Range::Chars(begin, end)
+    } else if let Some(line) = params.line {
+        let (begin, end) = parse_range(&line)?;
+        Range::Lines(begin, end)
+    } else {
+        // both begin and end default to 0 when they're not given
+        let begin = params.begin.unwrap_or(0);
+        let end = params.end.unwrap_or(0);
+        Range::Chars(begin, end)
+    };
+
+    let response = get_text_chars(textpool, &text_id, range, stream);
 
     if let Ok(ApiResponse::Text(text)) = &response {
         if let Some(length) = params.length {
@@ -633,22 +616,17 @@ async fn stat_text(
 /// Returns a text or a text slice according to Text Referencing API 2
 async fn get_api2_with_region(
     Path((text_id, region)): Path<(String, String)>,
-    textpool: State<Arc<TextPool>>,
+    State(textpool): State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
+    let text_id = api2_decode_id(text_id.as_str());
+
     if region == "info.json" {
-        textpool.stat_api2(&api2_decode_id(text_id.as_str()))
+        textpool.stat_api2(&text_id)
     } else if let Some((prefix, remainder)) = region.split_once(':') {
         let (begin, end) = get_text_slice_helper(remainder)?;
         match prefix {
-            "char" => get_text_chars(textpool, text_id, begin, end, true),
-            "line" => {
-                textpool.map_lines(
-                    &api2_decode_id(text_id.as_str()),
-                    begin,
-                    end,
-                    |text| Ok(ApiResponse::Text(text.to_string())), //TODO: work away the String clone
-                )
-            }
+            "char" => get_text_chars(textpool, &text_id, Range::Chars(begin, end), true),
+            "line" => get_text_chars(textpool, &text_id, Range::Lines(begin, end), true),
             _ => Err(ApiError::ParameterError(
                 "invalid prefix for region parameter, must be 'char' or 'line'",
             )),
@@ -656,7 +634,7 @@ async fn get_api2_with_region(
     } else {
         let (begin, end) = get_text_slice_helper(region.as_str())?;
 
-        get_text_chars(textpool, text_id, begin, end, true)
+        get_text_chars(textpool, &text_id, Range::Chars(begin, end), true)
     }
 }
 
@@ -676,17 +654,17 @@ async fn get_api2_with_region(
 )]
 async fn get_api2_short(
     Path(text_id): Path<String>,
-    textpool: State<Arc<TextPool>>,
+    State(textpool): State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    get_text_chars(textpool, text_id, 0, 0, true)
+    get_text_chars(textpool, &text_id, Range::Chars(0, 0), true)
 }
 
 /// Extra patch to allow pipes as a substitute for slashes in URLs
 fn api2_decode_id<'a>(s: &'a str) -> Cow<'a, str> {
     if s.find('|').is_some() {
-        s.replace("|", "/").into()
+        Cow::Owned(s.replace("|", "/"))
     } else {
-        s.into()
+        Cow::Borrowed(s)
     }
 }
 
@@ -703,7 +681,7 @@ fn file_index(dir: &std::path::Path, extension: &str) -> Vec<String> {
             .expect("prefix should be there");
         if !extension.is_empty() {
             if let Some(filepath_s) = filepath.to_str() {
-                if let Some(pos) = filepath_s.find(&extension) {
+                if let Some(pos) = filepath_s.find(extension) {
                     store_ids.push(filepath_s[0..pos].to_string());
                 }
             }
