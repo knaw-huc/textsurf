@@ -17,7 +17,7 @@ pub enum ApiResponse {
     Ok(),
     Created(),
     NoContent(),
-    Text(String), //TODO: Rework to work with a stream over a borrowed &str rather than needing this copy
+    Text(String),
     TextStream(Body),
     Stat {
         chars: u64,
