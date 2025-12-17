@@ -420,6 +420,7 @@ fn get_text_chars(
     textpool: Arc<TextPool>,
     text_id: &str,
     range: Range,
+    force_no_stream: bool,
 ) -> Result<ApiResponse, ApiError> {
     // get absolute start and end character positions
     let (begin, end) = match range {
@@ -428,7 +429,7 @@ fn get_text_chars(
     }?;
 
     // asked range is smaller than threshold, just send as non-streamed response
-    if (end - begin) < STREAM_THRESHOLD {
+    if force_no_stream || (end - begin) < STREAM_THRESHOLD {
         return match range {
             Range::Chars(begin, end) => textpool.map(text_id, begin, end, |text| {
                 Ok(ApiResponse::Text(text.to_string()))
@@ -542,6 +543,8 @@ async fn get_text(
         return list_texts_subdir(text_id, State(textpool), request);
     }
 
+    let force_no_stream = params.length.is_some() || params.md5.is_some();
+
     let range = if let Some(char) = params.char {
         let (begin, end) = parse_range(&char)?;
         Range::Chars(begin, end)
@@ -555,7 +558,7 @@ async fn get_text(
         Range::Chars(begin, end)
     };
 
-    let response = get_text_chars(textpool, &text_id, range);
+    let response = get_text_chars(textpool, &text_id, range, force_no_stream);
 
     if let Ok(ApiResponse::Text(text)) = &response {
         if let Some(length) = params.length {
@@ -621,8 +624,8 @@ async fn get_api2_with_region(
     } else if let Some((prefix, remainder)) = region.split_once(':') {
         let (begin, end) = get_text_slice_helper(remainder)?;
         match prefix {
-            "char" => get_text_chars(textpool, &text_id, Range::Chars(begin, end)),
-            "line" => get_text_chars(textpool, &text_id, Range::Lines(begin, end)),
+            "char" => get_text_chars(textpool, &text_id, Range::Chars(begin, end), false),
+            "line" => get_text_chars(textpool, &text_id, Range::Lines(begin, end), false),
             _ => Err(ApiError::ParameterError(
                 "invalid prefix for region parameter, must be 'char' or 'line'",
             )),
@@ -630,7 +633,7 @@ async fn get_api2_with_region(
     } else {
         let (begin, end) = get_text_slice_helper(region.as_str())?;
 
-        get_text_chars(textpool, &text_id, Range::Chars(begin, end))
+        get_text_chars(textpool, &text_id, Range::Chars(begin, end), false)
     }
 }
 
@@ -652,7 +655,7 @@ async fn get_api2_short(
     Path(text_id): Path<String>,
     State(textpool): State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
-    get_text_chars(textpool, &text_id, Range::Chars(0, 0))
+    get_text_chars(textpool, &text_id, Range::Chars(0, 0), false)
 }
 
 /// Extra patch to allow pipes as a substitute for slashes in URLs
