@@ -2,7 +2,7 @@
 name = "textsurf"
 version = "0.5.0" #also adapt in Makefile
 edition = "2021"
-authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
+authors = ["Maarten van Gompel <proycon@anaproy.nl>", "Miel Peeters <miel.peeters@ugent.be>"]
 description = "Webservice for efficiently serving multiple plain text documents or excerpts thereof (by unicode character offset), without everything into memory."
 documentation = "https://docs.rs/textsurf"
 include = ["src/**/*","tests/**/*", "LICENSE", "README.md"]
