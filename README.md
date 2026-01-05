@@ -206,3 +206,11 @@ A: No, although for formats with light markup like Markdown or
 ReStructuredText, this service may still be useful. For heavy markup like XML
 or JSON it is not recommended as character-based addressing makes little sense
 there.
+
+*Q: Does the server support chunked transfer?*
+
+A: Yes, we implement HTTP/1.1 Chunked Transfer Encoding to transfer large texts
+in a streaming fashion. The benefits of using chunked transfer encoding include
+significant reduction in server-side memory usage and improved client-perceived
+transfer speed, as well as a reduction in latency. HTTP/1.0 clients (i.e.
+without Chunked Transfer Encoding) are still supported as well.
