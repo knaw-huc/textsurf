@@ -461,11 +461,17 @@ fn get_text_chars(
             // put textpool operation in a tokio blocking task
             // in order to not block this tokio executor on slow IO operations
             let chunk_data = tokio::task::block_in_place(|| {
-                let begin = (chunk * CHUNK_SIZE as u64) as isize;
-                let end = ((chunk + 1) * CHUNK_SIZE as u64).min(char_count) as isize;
+                let begin_chunk = (begin as u64 + chunk * CHUNK_SIZE as u64) as isize;
+                let end_chunk =
+                    (begin as u64 + ((chunk + 1) * CHUNK_SIZE as u64)).min(end as u64) as isize;
 
                 textpool
-                    .map(&text_id, begin, end, |text| Ok(text.to_string()))
+                    .map(
+                        &text_id,
+                        begin_chunk,
+                        end_chunk,
+                        |text| Ok(text.to_string()),
+                    )
                     .unwrap()
             });
             Ok::<_, Infallible>(chunk_data)

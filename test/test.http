@@ -23,6 +23,9 @@ GET http://127.0.0.1:8080/julesverne?begin=-200
 ### Retrieve a particular text slice (char-schema syntax like in RFC5147)
 GET http://127.0.0.1:8080/julesverne?char=-200
 
+### Retrieve a particular large text chunk (char-schema syntax like in RFC5147)
+GET http://127.0.0.1:8080/julesverne?char=40008,60061
+
 ### Error when text does not exist
 GET http://127.0.0.1:8080/doesnotexist
 
