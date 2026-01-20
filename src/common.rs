@@ -8,6 +8,7 @@ use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::value::Value;
 use std::collections::BTreeMap;
+use utoipa::openapi::Header;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SERVER: &str = concatcp!("textsurf/", VERSION);
@@ -47,8 +48,32 @@ impl IntoResponse for ApiResponse {
             Self::NoContent() => {
                 (StatusCode::NO_CONTENT, [cors, server], "deleted").into_response()
             }
-            Self::Text(s) => (StatusCode::OK, [cors, server], s).into_response(),
-            Self::TextStream(stream) => (StatusCode::OK, [cors, server], stream).into_response(),
+            Self::Text(s) => (
+                StatusCode::OK,
+                [
+                    cors,
+                    server,
+                    (
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_str("text/plain; charset=utf-8").unwrap(),
+                    ),
+                ],
+                s,
+            )
+                .into_response(),
+            Self::TextStream(stream) => (
+                StatusCode::OK,
+                [
+                    cors,
+                    server,
+                    (
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_str("text/plain; charset=utf-8").unwrap(),
+                    ),
+                ],
+                stream,
+            )
+                .into_response(),
             Self::JsonList(data) => (StatusCode::OK, [cors, server], Json(data)).into_response(),
             Self::Stat {
                 chars,
