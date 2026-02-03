@@ -8,7 +8,6 @@ use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::value::Value;
 use std::collections::BTreeMap;
-use utoipa::openapi::Header;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SERVER: &str = concatcp!("textsurf/", VERSION);

@@ -20,6 +20,7 @@ pub struct TextPool {
     basedir: PathBuf,
     extension: String,
     readonly: bool,
+    apikey: Option<String>,
     lines: bool,
     unload_time: u64,
     texts: RwLock<HashMap<String, Arc<RwLock<TextFile>>>>, //the extra Arc allows us to drop the lock earlier
@@ -31,6 +32,7 @@ impl TextPool {
         basedir: impl Into<PathBuf>,
         extension: impl Into<String>,
         readonly: bool,
+        apikey: Option<String>,
         lines: bool,
         unload_time: u64,
     ) -> Result<Self, &'static str> {
@@ -46,6 +48,7 @@ impl TextPool {
                 lines,
                 unload_time,
                 readonly,
+                apikey,
             })
         }
     }
@@ -56,6 +59,10 @@ impl TextPool {
 
     pub fn extension(&self) -> &str {
         self.extension.as_str()
+    }
+
+    pub fn apikey(&self) -> Option<&str> {
+        self.apikey.as_deref()
     }
 
     pub fn map<F, T>(&self, id: &str, begin: isize, end: isize, f: F) -> Result<T, ApiError>

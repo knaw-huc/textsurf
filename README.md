@@ -187,11 +187,15 @@ Run `docker run --rm -v ./test/docroot:/data -p 8080:8080 proycon/textsurf` wher
 ## Security
 
 The webservice launches in read-only mode by default (does not allow text
-upload/deletion). Pass `--writable` to allow writing (for the container, pass environment variable `WRITABLE=1`). 
+upload/deletion). Pass `--writable` to allow writing (for the container, pass environment variable `WRITABLE=1`) for everybody.
 In that case, the webservice is **NOT** meant to be directly opened up to the internet, as it
 does not provide any authentication mechanism and can be easily abused as a
 an arbitrary file hosting service. Make sure it is behind a firewall or on a private network
-segment. 
+segment.
+
+You can also open up *writing* for bearers of an authorization key (per [https://datatracker.ietf.org/doc/html/rfc6750](RFC6750)).
+When starting textsurf, set this key with `--apikey` (or for the container, pass environment variable `APIKEY`).
+Do not also specify  `--writable`!
 
 ## FAQ
 

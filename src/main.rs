@@ -66,9 +66,16 @@ struct Args {
         short,
         long,
         default_value_t = false,
-        help = "Allow upload and deletion of texts, otherwise everything is read-only"
+        help = "Allow anonymous upload and deletion of texts, otherwise everything is read-only. Not recommend in any scenario where the service is open to the internet!"
     )]
     writable: bool,
+
+    #[arg(
+        short,
+        long,
+        help = "Allow upload and deletion of texts for bearers of this API key. Do not also specify --writable"
+    )]
+    apikey: Option<String>,
 
     #[arg(
         short = 'L',
@@ -113,7 +120,8 @@ async fn main() {
     let textpool = TextPool::new(
         args.basedir,
         args.extension,
-        !args.writable,
+        !args.writable && args.apikey.is_none(),
+        args.apikey,
         !args.no_lines,
         args.unload_time,
     )
@@ -280,9 +288,11 @@ async fn delete_all(textpool: State<Arc<TextPool>>) -> Result<ApiResponse, ApiEr
 /// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, 403 will be returned
 async fn create_text(
     Path(text_id): Path<String>,
+    headers: HeaderMap,
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
     if textpool.new_text(&text_id, text, false)? {
         Ok(ApiResponse::Created())
     } else {
@@ -379,8 +389,10 @@ async fn create_text_overwrite_api2(
 /// Permanently delete a text
 async fn delete_text(
     Path(text_id): Path<String>,
+    headers: HeaderMap,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
     if text_id.ends_with('/') {
         //deletion of an entire subdir rather than a single text
         delete_subdir(text_id.as_str(), textpool)
@@ -411,6 +423,26 @@ async fn delete_text_api2(
     Ok(ApiResponse::NoContent())
 }
 
+/// Verify API key if set
+fn verify_auth(textpool: &TextPool, headers: HeaderMap) -> Result<(), ApiError> {
+    if let Some(apikey) = textpool.apikey() {
+        let mut auth = false;
+        if let Some(authorization) = headers.get("Authorization") {
+            if let Ok(authorization) = authorization.to_str() {
+                if authorization.starts_with("Bearer ") {
+                    let token = &authorization[7..];
+                    auth = token == apikey.trim();
+                }
+            }
+        } else {
+            return Err(ApiError::PermissionDenied("Authorization required"));
+        }
+        if !auth {
+            return Err(ApiError::PermissionDenied("Invalid authorization"));
+        }
+    }
+    Ok(())
+}
 enum Range {
     Chars(isize, isize),
     Lines(isize, isize),

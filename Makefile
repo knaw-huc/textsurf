@@ -1,11 +1,11 @@
 #also adapt version in Cargo.toml
-VERSION := 0.5.2
+VERSION := 0.6.0
 
 .PHONY: install testrun docker docker-run docker-publish
 install:
 	cargo install --path .
 
-clean: 
+clean:
 	rm -rf target test/docroot
 
 testrun: test/docroot/julesverne.txt
