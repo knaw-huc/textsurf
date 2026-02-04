@@ -37,6 +37,7 @@ GET http://127.0.0.1:8080/api2/julesverne/info.json
 
 ### Add a new text (note that this adds a directory test to place it in)
 POST http://127.0.0.1:8080/test/hello
+Authorization: Bearer 12345
 Content-Type: text/plain
 
 你好世界！
@@ -83,6 +84,7 @@ Content-Type: text/plain
 
 ### Update a text
 PUT http://127.0.0.1:8080/test/hello2
+Authorization: Bearer 12345
 Content-Type: text/plain
 
 Hello world
@@ -91,8 +93,10 @@ Hello world
 GET http://127.0.0.1:8080/test/
 Accept: application/json
 
-### Delete a text 
+### Delete a text
 DELETE http://127.0.0.1:8080/test/hello
+Authorization: Bearer 12345
 
 ### Delete all texts in a subdir
 DELETE http://127.0.0.1:8080/test/
+Authorization: Bearer 12345

@@ -269,7 +269,11 @@ fn list_texts_subdir(
     )
 )]
 /// Deletes all texts, recursively
-async fn delete_all(textpool: State<Arc<TextPool>>) -> Result<ApiResponse, ApiError> {
+async fn delete_all(
+    headers: HeaderMap,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
     delete_subdir("", textpool)
 }
 
@@ -316,9 +320,11 @@ async fn create_text(
 /// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, it will be overwritten.
 async fn create_text_overwrite(
     Path(text_id): Path<String>,
+    headers: HeaderMap,
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
     if textpool.new_text(&text_id, text, true)? {
         Ok(ApiResponse::Created())
     } else {
@@ -364,9 +370,11 @@ async fn create_text_api2(
 /// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, it will be overwritten.
 async fn create_text_overwrite_api2(
     Path(text_id): Path<String>,
+    headers: HeaderMap,
     textpool: State<Arc<TextPool>>,
     text: String,
 ) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
     if textpool.new_text(&api2_decode_id(&text_id), text, true)? {
         Ok(ApiResponse::Created())
     } else {
@@ -417,8 +425,10 @@ async fn delete_text(
 /// Permanently delete a text
 async fn delete_text_api2(
     Path(text_id): Path<String>,
+    headers: HeaderMap,
     textpool: State<Arc<TextPool>>,
 ) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
     textpool.delete_text(&api2_decode_id(&text_id))?;
     Ok(ApiResponse::NoContent())
 }

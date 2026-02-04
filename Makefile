@@ -9,7 +9,7 @@ clean:
 	rm -rf target test/docroot
 
 testrun: test/docroot/julesverne.txt
-	cargo run -- --debug --writable -d test/docroot
+	cargo run -- --debug --apikey 12345 -d test/docroot
 
 test/docroot/julesverne.txt: test/docroot
 	curl https://www.gutenberg.org/cache/epub/4791/pg4791.txt > $@
