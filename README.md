@@ -10,7 +10,7 @@
 
 This is a webservice for efficiently serving plain texts and fragments thereof
 using unicode character-based addressing. It builds upon
-[textframe](https://github.com/proycon/textframe).
+[textframe](https://codeberg.org/proycon/textframe)
 
 ## Description & Features
 
@@ -155,16 +155,15 @@ Production environments:
 $ cargo install textsurf
 ```
 
-Development environments:
+Development environments, clone this repository and then do:
 
 ```
-$ git clone git@github.com:knaw-huc/textsurf.git
 $ cd textsurf
 $ cargo install --path .
 ```
 
 Development versions may require a development version of
-[textframe](https://github.com/proycon/textframe); clone it alongside textsurf and add a
+[textframe](https://codeberg.org/proycon/textframe); clone it alongside textsurf and add a
 `textsurf/.cargo/config.toml` with:
 
 ```toml
