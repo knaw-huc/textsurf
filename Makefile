@@ -28,4 +28,8 @@ docker-publish:
 	docker tag proycon/textsurf registry.diginfra.net/tt/textsurf:$(VERSION)
 	docker push registry.diginfra.net/tt/textsurf:latest
 	docker push registry.diginfra.net/tt/textsurf:$(VERSION)
+	docker tag proycon/textsurf docker.io/proycon/textsurf:latest
+	docker tag proycon/textsurf docker.io/proycon/textsurf:$(VERSION)
+	docker push docker.io/proycon/textsurf:latest
+	docker push docker.io/proycon/textsurf:$(VERSION)
 
