@@ -35,6 +35,10 @@ GET http://127.0.0.1:8080/stat/julesverne
 ### Get metadata (API2)
 GET http://127.0.0.1:8080/api2/julesverne/info.json
 
+### Flush metadata (API2)
+POST http://127.0.0.1:8080/flush
+Authorization: Bearer 12345
+
 ### Add a new text (note that this adds a directory test to place it in)
 POST http://127.0.0.1:8080/test/hello
 Authorization: Bearer 12345

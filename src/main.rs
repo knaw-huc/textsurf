@@ -9,7 +9,7 @@ use std::time::Duration;
 use std::{borrow::Cow, convert::Infallible};
 use tokio::signal;
 use tower_http::trace::TraceLayer;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use serde::Deserialize;
 use utoipa::OpenApi;
@@ -162,6 +162,7 @@ async fn main() {
         .route("/{*text_id}", post(create_text))
         .route("/{*text_id}", put(create_text_overwrite))
         .route("/{*text_id}", delete(delete_text))
+        .route("/flush", post(flush))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
         .with_state(textpool.clone());
@@ -266,6 +267,7 @@ fn list_texts_subdir(
     path = "/",
     responses(
         (status = 204, description = "Returned when successfully deleted"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or there is no authorization provided or it is rejected", content_type = "application/json")
     )
 )]
 /// Deletes all texts, recursively
@@ -364,7 +366,7 @@ async fn create_text_api2(
     responses(
         (status = 200, description = "Returned when successfully updated"),
         (status = 201, description = "Returned when successfully newly created"),
-        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or the text already exists", content_type = "application/json")
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or there is no authorization provided or it is rejected", content_type = "application/json")
     )
 )]
 /// Create (upload) a new text, the text is transferred in the request body and must be valid UTF-8. If the text exists already, it will be overwritten.
@@ -391,7 +393,7 @@ async fn create_text_overwrite_api2(
     responses(
         (status = 204, description = "Returned when successfully deleted"),
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the text does not exist", content_type = "application/json"),
-        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied if the service is configured as read-only", content_type = "application/json")
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or there is no authorization provided or it is rejected", content_type = "application/json")
     )
 )]
 /// Permanently delete a text
@@ -419,7 +421,7 @@ async fn delete_text(
     responses(
         (status = 204, description = "Returned when successfully deleted"),
         (status = 404, body = apidocs::ApiError, description = "An ApiError with name 'NotFound` is returned if the text does not exist", content_type = "application/json"),
-        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied if the service is configured as read-only", content_type = "application/json")
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or there is no authorization provided or it is rejected", content_type = "application/json")
     )
 )]
 /// Permanently delete a text
@@ -622,6 +624,25 @@ async fn get_text(
         }
     }
     response
+}
+
+#[utoipa::path(
+    post,
+    path = "/flush",
+    responses(
+        (status = 204, description = "Returned when successfully flushed all files"),
+        (status = 403, body = apidocs::ApiError, description = "Returned with name `PermissionDenied` when permission is denied, for instance the service is configured as read-only or there is no authorization provided or it is rejected", content_type = "application/json")
+    )
+)]
+/// Forcibly flushes all texts from memory; clearing the cache
+async fn flush(
+    headers: HeaderMap,
+    textpool: State<Arc<TextPool>>,
+) -> Result<ApiResponse, ApiError> {
+    verify_auth(&**textpool, headers)?;
+    let v = textpool.flush(true)?;
+    info!("Force-flushed {} text(s) on request", v.len());
+    Ok(ApiResponse::Ok())
 }
 
 #[utoipa::path(
