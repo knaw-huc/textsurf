@@ -61,7 +61,7 @@ These are extra endpoints that are available but not part of the Text Referencin
 * `GET /s/{text_id}/{begin}/{end}` - Simple pure URL call. Only works with simple text IDs without any path components!
 * `GET /swagger-ui`        - Serves an interactive webinterface explaining the RESTful API specification.
 * `GET /api-doc/openapi.json`   - Machine parseable OpenAPI specification.
-* `POST /flush`   - Forcibly flush the cash, unloading all texts
+* `POST /flush`   - Forcibly flush the cache, unloading all texts
 
 
 ## Text Referencing API 1: Formal Specification
