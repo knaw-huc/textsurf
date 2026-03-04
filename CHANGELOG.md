@@ -1,11 +1,11 @@
+# v0.7.0 - 2026-02-04
+
+* Added a `POST /flush` endpoint to clear the cache
+* Updated to textframe 0.4.1: rebuild index when the index file is older than the source text
 
 # v0.6.0 - 2026-02-04
 
 * Added simple authentication support, write access now requires an api key if `--apikey` is set on startup. Clients must then send `Authorization: Bearer 
-
-
-
-
 
 # v0.5.2 - 2026-01-20
 
