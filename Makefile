@@ -1,5 +1,5 @@
 #also adapt version in Cargo.toml
-VERSION := 0.6.0
+VERSION := 0.7.0
 
 .PHONY: install testrun docker docker-run docker-publish
 install:
