@@ -197,6 +197,10 @@ You can also open up *writing* for bearers of an authorization key (per [https:/
 When starting textsurf, set this key with `--apikey` (or for the container, pass environment variable `APIKEY`).
 Do not also specify  `--writable`!
 
+## Contributing
+
+Contributions are welcome! Please consult the [contributing guidelines](CONTRIBUTING.md) first.
+
 ## FAQ
 
 *Q: Can I request byte offsets instead?*
