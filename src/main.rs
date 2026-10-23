@@ -281,7 +281,7 @@ async fn delete_all(
 
 #[utoipa::path(
     post,
-    path = "/{*text_id}",
+    path = "/{text_id}",
     request_body( content_type = "text/plain", content = String),
     params(
         ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
@@ -308,7 +308,7 @@ async fn create_text(
 
 #[utoipa::path(
     put,
-    path = "/{*text_id}",
+    path = "/{text_id}",
     request_body( content_type = "text/plain", content = String),
     params(
         ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components."),
@@ -386,7 +386,7 @@ async fn create_text_overwrite_api2(
 
 #[utoipa::path(
     delete,
-    path = "/{*text_id}",
+    path = "/{text_id}",
     params(
         ("text_id" = String, Path, description = "The identifier of the text. It may contain zero or more path components. Important note: If this ends with a trailing slash, the identifier is interpreted as a path and all texts in that path are removed (recursively)!"),
     ),
@@ -561,7 +561,7 @@ struct TextParams {
 
 #[utoipa::path(
     get,
-    path = "/{*text_id}",
+    path = "/{text_id}",
     params(
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk. It may contain zero or more path components."),
         ("begin" = Option<isize>, Query, description = "An integer indicating the begin offset in unicode points (0-indexed). This may be a negative integer for end-aligned cursors. The default value is 0."),
@@ -647,7 +647,7 @@ async fn flush(
 
 #[utoipa::path(
     get,
-    path = "/stat/{*text_id}",
+    path = "/stat/{text_id}",
     params(
         ("text_id" = String, Path, description = "The identifier of the text. The identifier corresponds to the filename without extension on disk. It may contain zero or more path components."),
     ),
