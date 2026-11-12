@@ -48,6 +48,13 @@ struct Args {
     basedir: String,
 
     #[arg(
+        short = 'u',
+        long,
+        help = "The URL this service is served from, you ONLY need to set this for the Swagger UI to work if you don't run textsurf at your (sub)domain's root but with a prefix behind a reverse proxy. It is not needed in other scenarios."
+    )]
+    url: Option<String>,
+
+    #[arg(
         short = 'e',
         long,
         default_value_os = "txt",
@@ -163,7 +170,14 @@ async fn main() {
         .route("/{*text_id}", put(create_text_overwrite))
         .route("/{*text_id}", delete(delete_text))
         .route("/flush", post(flush))
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
+        .merge(
+            SwaggerUi::new("/swagger-ui")
+                .url("/api-doc/openapi.json", ApiDoc::openapi())
+                .config(utoipa_swagger_ui::Config::from(format!(
+                    "{}/api-doc/openapi.json",
+                    args.url.unwrap_or_default()
+                ))),
+        )
         .layer(TraceLayer::new_for_http())
         .with_state(textpool.clone());
 
