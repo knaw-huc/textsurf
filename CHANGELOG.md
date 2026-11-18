@@ -1,3 +1,12 @@
+# v0.7.1 - 2026-11-18
+
+[Maarten van Gompel]
+* added contributor guidelines, including AI policy
+* pass --url parameter if you run on a prefix and want the Swagger UI to work
+
+[Luuk Suurmeijer]
+* fixes in OpenAPI specification
+
 # v0.7.0 - 2026-02-04
 
 * Added a `POST /flush` endpoint to clear the cache
